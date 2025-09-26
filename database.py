@@ -1,8 +1,10 @@
+# database.py
+import re
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 # !!! ВАЖНО: Замените на ваши реальные данные для подключения к БД !!!
-DATABASE_URL = "postgresql://postgres:YOUR_PASSWORD@localhost:5432/hackathons"
+DATABASE_URL = "postgresql://imoscow_admin:pudge@localhost:5432/imoscow_test"
 
 try:
     engine = create_engine(DATABASE_URL)
@@ -47,3 +49,35 @@ def get_recognition(record_id: int) -> dict | None:
     if row:
         return {"id": row.id, "filename": row.filename, "text": row.text_content}
     return None
+
+def save_file_record(file_path: str, file_name: str, file_extension: str) -> dict | None:
+    """
+    Сохраняет запись о файле в таблицу files.
+    Возвращает словарь {'file_id': int, 'load_date': datetime} или None при ошибке.
+    Бросает ValueError, если расширение невалидно.
+    """
+    # Валидация расширения — совпадает с CHECK в схеме таблицы
+    if not re.match(r"^[a-zA-Z0-9]+$", file_extension):
+        raise ValueError("Invalid file_extension: only alphanumeric characters allowed")
+
+    query = """
+        INSERT INTO files (file_path, file_name, file_extension)
+        VALUES (:file_path, :file_name, :file_extension)
+        RETURNING file_id, load_date;
+    """
+    params = {"file_path": file_path, "file_name": file_name, "file_extension": file_extension}
+
+    try:
+        result = execute_query(query, params)
+        if not result:
+            return None
+        row = result.first()
+        if not row:
+            return None
+        return {"file_id": row.file_id, "load_date": row.load_date}
+    except SQLAlchemyError as e:
+        print(f"Ошибка при сохранении записи файла: {e}")
+        return None
+    except Exception as e:
+        print(f"Неожиданная ошибка в save_file_record: {e}")
+        return None
