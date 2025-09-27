@@ -8,5 +8,6 @@ A service for extracting and indexing archival document images
 
 TODO:
 
-- Нужно доабвить модель в бекенд в ocr.py
+- Нужно добавить модель в бекенд в ocr.py
 - Изменить эндпоинты и подумать над логикой бека.
+- Изменить обращения к таблице `file_transcripts` в бэекенде (там recognitions)
