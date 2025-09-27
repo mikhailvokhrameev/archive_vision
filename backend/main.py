@@ -54,7 +54,7 @@ async def upload_file_to_files_table(file: UploadFile = File(...)):
                 "file_name": file.filename,
                 "file_extension": ext,
                 "file_path": filepath,
-                "load_date": saved["load_date"]
+                "load_date": saved["load_date"].isoformat()
             }
         )
     except HTTPException:
