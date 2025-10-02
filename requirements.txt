@@ -5,8 +5,6 @@ pydantic
 python-dotenv
 requests
 sqlalchemy
-torch
-transformers
 Pillow
 numpy
 opencv-python-headless
@@ -17,3 +15,5 @@ scipy
 pdf2image
 tqdm
 streamlit
+torch
+transformers
