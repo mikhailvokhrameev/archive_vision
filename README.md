@@ -62,6 +62,7 @@ ARCHIVE_VISION/
 │   └── bestbmstu.pptx    # Слайды презентации проекта
 │
 ├── .gitignore
+├── Dockerfile            # Инструкция по загрузке нужных библиотек и запуску приложения
 ├── generate_db.sql       # SQL-скрипт для инициализации схемы БД
 ├── LICENSE
 ├── README.md
