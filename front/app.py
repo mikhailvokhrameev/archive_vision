@@ -175,7 +175,7 @@ if st.session_state.processed_files:
     
     export_format = st.selectbox("Выберете формат:", ("JSON", "CSV", "TXT"))
 
-    if st.button("Экспорт данные"):
+    if st.button("Экспорт данных"):
         export_data_list = []
         for name, data in st.session_state.processed_files.items():
             export_data_list.append({
