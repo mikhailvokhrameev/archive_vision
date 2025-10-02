@@ -35,7 +35,18 @@ def execute_query(query, params=None):
         print(f"Database query failed: {e}")
         return None
 
-# --- File Operations ---
+# --- File Operations --
+# -
+def get_all_files():
+    """
+    Возвращает все записи из таблицы files.
+    """
+    query = "SELECT file_id, file_path, file_name, file_extension, load_date FROM files"
+    result = execute_query(query)
+    if result:
+        return [dict(row._mapping) for row in result]
+    return []
+
 
 def save_file_record(file_path: str, file_name: str, file_extension: str) -> dict | None:
     """
@@ -101,7 +112,7 @@ def save_transcript_record(file_id: int, transcript_path: str, wer: dict) -> int
 
 def get_transcript_record(transcript_id: int) -> dict | None:
     """Retrieves a transcript record by its ID."""
-    query = "SELECT transcript_id, file_id, transcript_path, wer, created_at FROM file_transcripts WHERE transcript_id = :transcript_id;"
+    query = "SELECT transcript_id, file_id, transcript_path, wer FROM file_transcripts WHERE transcript_id = :transcript_id;"
     result = execute_query(query, {"transcript_id": transcript_id})
     if result:
         row = result.first()

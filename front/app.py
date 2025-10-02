@@ -36,8 +36,18 @@ def initialize_session_state():
     if "total_processed_count" not in st.session_state:
         st.session_state.total_processed_count = 0
 
+def progress_message(value):
+    if value < 0.2:
+        return "Начата расшифровка, ждите..."
+    elif value < 0.8:
+        return "Обрабатываем, еще чуть-чуть...."
+    elif value < 1.0:
+        return "Почти закончили!"
+    else:
+        return "Сделано!"
+
 # --- UI Layout and Logic ---
-st.title("📄 Document OCR and Transcription Service")
+st.title("Archive Vision - Сервис оцифровки архивных документов")
 
 # Create a temporary directory for uploads
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -46,14 +56,14 @@ initialize_session_state()
 # --- File Input Methods ---
 files_to_process = []
 input_method = st.radio(
-    "Choose input method:",
-    ("Upload Files", "Process Local Directory"),
+    "Методы загрузки:",
+    "Загрузить документы",
     horizontal=True
 )
 
-if input_method == "Upload Files":
+if input_method == "Загрузить документы":
     uploaded_files = st.file_uploader(
-        "Upload JPG, JPEG, or PDF files",
+        "Загрузить JPG, JPEG или PDF файлы",
         type=["jpg", "jpeg", "pdf"],
         accept_multiple_files=True
     )
@@ -64,26 +74,12 @@ if input_method == "Upload Files":
                 f.write(uf.getvalue())
             files_to_process.append({"name": uf.name, "path": path, "upload_obj": uf})
 
-elif input_method == "Process Local Directory":
-    dir_path = st.text_input("Enter the full path to a local directory:")
-    if dir_path and os.path.isdir(dir_path):
-        st.write(f"Scanning directory: {dir_path}")
-        for f_name in os.listdir(dir_path):
-            if f_name.lower().endswith((".jpg", ".jpeg", ".pdf")):
-                files_to_process.append({
-                    "name": f_name,
-                    "path": os.path.join(dir_path, f_name),
-                    "upload_obj": None
-                })
-    elif dir_path:
-        st.error("The provided path is not a valid directory.")
-
 # --- Processing Logic ---
 if files_to_process:
-    st.write(f"Found {len(files_to_process)} files to process.")
+    st.write(f"Найдено {len(files_to_process)} файлов для обработки.")
     st.session_state.total_session_files = len(files_to_process)
 
-    if st.button("✨ Start Processing", type="primary"):
+    if st.button("Начать обработку", type="primary"):
         progress_bar = st.progress(0)
         st.session_state.processed_files = {} # Reset state on new run
         
@@ -100,7 +96,7 @@ if files_to_process:
                 if upload_response.status_code == 200:
                     upload_data = upload_response.json()
                     file_id = upload_data.get("file_id")
-                    st.info(f"'{file_name}' uploaded successfully. File ID: {file_id}")
+                    st.info(f"'{file_name}' успешно загружен. File ID: {file_id}")
 
                     # --- Step 2: Transcribe the file ---
                     transcribe_url = f"{API_BASE}/files/{file_id}/transcribe"
@@ -118,26 +114,28 @@ if files_to_process:
                             "file_id": file_id,
                             "transcript_id": transcript_id,
                         }
-                        st.success(f"'{file_name}' transcribed successfully.")
+                        st.success(f"'{file_name}' успешно распознан.")
                     else:
-                        st.error(f"Error transcribing '{file_name}': {transcribe_response.status_code} - {transcribe_response.text}")
+                        st.error(f"Ошибка распознавания текста '{file_name}': {transcribe_response.status_code} - {transcribe_response.text}")
                 else:
-                    st.error(f"Error uploading '{file_name}': {upload_response.status_code} - {upload_response.text}")
+                    st.error(f"Ошибка загрузки '{file_name}': {upload_response.status_code} - {upload_response.text}")
 
             except Exception as e:
-                st.error(f"An unexpected error occurred with '{file_name}': {e}")
+                st.error(f"Произошла непредвиденная ошибка с '{file_name}': {e}")
             
-            progress_bar.progress((i + 1) / len(files_to_process))
+            progress = (i + 1) / len(files_to_process)
+            progress_bar.progress(progress)
+            st.write(progress_message(progress))
 
         st.session_state.total_processed_count = len(st.session_state.processed_files)
         st.balloons()
-        st.subheader("🎉 Processing Complete!")
-        st.write(f"Files in session: {st.session_state.total_session_files}")
-        st.write(f"Successfully processed: {st.session_state.total_processed_count}")
+        st.subheader("Обработка завершена!")
+        st.write(f"Загруженные файлы: {st.session_state.total_session_files}")
+        st.write(f"Успешно обработаны: {st.session_state.total_processed_count}")
 
 # --- Display and Edit Results ---
 if st.session_state.processed_files:
-    st.header("📝 Review and Edit Transcripts")
+    st.header("Посмотреть и отредактировать распознанный текст")
     for name, data in st.session_state.processed_files.items():
         with st.expander(f"**{name}** (File ID: {data['file_id']}, Transcript ID: {data['transcript_id']})"):
             col1, col2 = st.columns(2)
@@ -146,16 +144,16 @@ if st.session_state.processed_files:
                 try:
                     # Display PDF as an info box, image as an image
                     if data["path"].lower().endswith('.pdf'):
-                        st.info("PDF preview is not available.")
+                        st.info("PDF картинка недоступна.")
                     else:
                         img = Image.open(data["path"])
-                        st.image(img, caption="Image Preview", use_container_width=True)
+                        st.image(img, caption="Картинка", use_container_width=True)
                 except Exception as e:
-                    st.warning(f"Could not display preview for {name}. Error: {e}")
+                    st.warning(f"Не получилось загрузить картинку для: {name}. Ошибка: {e}")
 
             with col2:
                 edited_text = st.text_area(
-                    "Extracted Text",
+                    "Распознанный текст",
                     value=data["text"],
                     height=300,
                     key=f"text_{name}"
@@ -163,19 +161,21 @@ if st.session_state.processed_files:
                 
                 if edited_text != data["text"]:
                     st.session_state.processed_files[name]["text"] = edited_text
-                    st.info("Changes are saved in the session. Re-run export to get updated data.")
-
-                # NOTE: The "Save Changes" button has been removed because the backend in `main.py`
-                # does not include an endpoint to PUT/update a transcript after it has been created.
-                # This functionality would need to be added to the backend API first.
+                    transcript_id = data["transcript_id"]
+                    api_url = f"{get_api_base_url()}/transcripts/{transcript_id}/edit"
+                    response = requests.post(api_url, json={"text": edited_text})
+                    if response.status_code == 200:
+                        st.info("Изменения в распознании сохранены.")
+                    else:
+                        st.error("Не получилось обновить файл с транскрипциями: " + response.text)
 
 # --- Export Functionality ---
 if st.session_state.processed_files:
-    st.header("💾 Export Data")
+    st.header("Экспорт данных")
     
-    export_format = st.selectbox("Select export format:", ("JSON", "CSV", "TXT"))
+    export_format = st.selectbox("Выберете формат:", ("JSON", "CSV", "TXT"))
 
-    if st.button("Download Export"):
+    if st.button("Экспорт данные"):
         export_data_list = []
         for name, data in st.session_state.processed_files.items():
             export_data_list.append({
@@ -208,19 +208,28 @@ if st.session_state.processed_files:
             file_ext = ".txt"
 
         st.download_button(
-            label="Download Data",
+            label="Скачать данные",
             data=export_str,
             file_name=f"archive_export{file_ext}",
             mime=mime,
         )
 
+response = requests.get(f"{get_api_base_url()}/files/all")
+if response.status_code == 200:
+    files = response.json()
+    count = len(files)
+else:
+    st.error("Не получилось загрузить документы.")
+
+st.write(f"Общее количество обработанных документов: {count}")
+
 # --- Cleanup ---
-if st.button("🧹 Clear Session and Files"):
+if st.button("Очистить данные текущей сессии"):
     try:
         shutil.rmtree(TEMP_DIR)
     except Exception as e:
-        st.error(f"Could not delete temp directory: {e}")
+        st.error(f"Не получилось удалить временную директорию: {e}")
     st.session_state.clear()
-    st.success("Session cleared. Please refresh the page.")
+    st.success("Данные очищены. Перезгрузите страницу.")
     st.rerun()
 

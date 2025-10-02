@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
 from ocr import recognize_text_from_file
+import random
 
 # Assuming these modules exist and function as before
 # from ocr import recognize_text_from_file
@@ -17,7 +18,8 @@ from database import (
     get_file_record,
     save_transcript_record,
     get_transcript_record,
-    get_transcripts_for_file
+    get_transcripts_for_file,
+    get_all_files
 )
 
 # --- FastAPI Application Setup ---
@@ -27,7 +29,7 @@ app = FastAPI(
     version="2.0.0"
 )
 
-UPLOAD_DIR = Path("./data")
+UPLOAD_DIR = Path("~/data")
 TRANSCRIPT_DIR = UPLOAD_DIR / "transcripts"
 TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -86,7 +88,7 @@ async def transcribe_file_endpoint(file_id: int = FastApiPath(..., description="
         transcript_path.write_text(extracted_text, encoding="utf-8")
 
         # Create a dummy WER JSON object
-        wer_data = {"confidence": 0.95, "word_count": len(extracted_text.split())}
+        wer_data = {"confidence": random.uniform(0.70, 0.86), "word_count": len(extracted_text.split())}
 
         # Save the transcript record to the database
         transcript_id = save_transcript_record(
@@ -123,6 +125,36 @@ async def list_transcripts_for_file_endpoint(file_id: int):
     if not transcripts:
         return {"message": "No transcripts found for this file.", "file_id": file_id, "transcripts": []}
     return {"file_id": file_id, "transcripts": transcripts}
+
+@app.post("/transcripts/{transcript_id}/edit")
+async def edit_transcript(transcript_id: int, text: str):
+    record = get_transcript_record(transcript_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    transcript_path = record["transcript_path"]
+    # Overwrite transcript file
+    with open(transcript_path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return {"message": "Transcript updated successfully."}
+
+
+@app.get("/files/all")
+async def list_all_files():
+    # Ideally loads from database.py file table.
+    # Replace get_all_files and get_transcripts_for_file with existing DB logic
+    files = []  # get all file records
+    # Assume a function or query fetches all file records from DB:
+    # get_all_files() -> [{'fileid': ..., 'filename': ...}]
+    for f in get_all_files():
+        transcripts = get_transcripts_for_file(f['file_id'])
+        wer = transcripts[0]['wer'] if transcripts else None
+        files.append({
+            "file_id": f['file_id'],
+            "file_name": f['file_name'],
+            "recognized": bool(transcripts),
+            "wer": wer
+        })
+    return files
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

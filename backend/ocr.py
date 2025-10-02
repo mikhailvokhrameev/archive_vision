@@ -168,11 +168,11 @@ def process_single_file(file_path, output_folder_preprocessed, file_index=1, min
 # Prediction functions
 
 # Load model once
-model_path = "trocr-finetuned-cyrillic"
+model_path = "trocr-base-handwritten-ru"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
-processor = TrOCRProcessor.from_pretrained(model_path)
-model = VisionEncoderDecoderModel.from_pretrained(model_path).to(device)
+processor = TrOCRProcessor.from_pretrained('kazars24/trocr-base-handwritten-ru')
+model = VisionEncoderDecoderModel.from_pretrained('kazars24/trocr-base-handwritten-ru').to(device)
 model.eval()
 
 def predict_text_from_line_image(line_image: Image.Image):
@@ -228,6 +228,29 @@ def recognize_text_from_file(filepath: str) -> str:
     result_text = "\n\n".join(full_texts)
     print(f"recognize_text_from_file finished")
     return result_text
+
+# utils for WER calculation
+def wer(reference, hypothesis):
+    """Calculate WER: reference and hypothesis are strings."""
+    r, h = reference.split(), hypothesis.split()
+    import numpy as np
+    d = np.zeros([len(r)+1, len(h)+1], dtype=np.uint32)
+    for i in range(len(r)+1):
+        d[i][0] = i
+    for j in range(len(h)+1):
+        d[0][j] = j
+    for i in range(1, len(r)+1):
+        for j in range(1, len(h)+1):
+            if r[i-1] == h[j-1]:
+                d[i][j] = d[i-1][j-1]
+            else:
+                substitution = d[i-1][j-1] + 1
+                insertion    = d[i][j-1] + 1
+                deletion     = d[i-1][j] + 1
+                d[i][j] = min(substitution, insertion, deletion)
+    wer_value = d[len(r)][len(h)] / max(1, len(r))
+    return wer_value
+
 
 # Test call (commented out)
 #if __name__ == '__main__':
