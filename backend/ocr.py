@@ -1,7 +1,3 @@
-# I have collected the relevant pieces of the code related to ocr.py and integration.
-# ocr.py has this stub function recognize_text_from_file that should be replaced by the integration
-# I will define a new recognize_text_from_file that combines preprocessing, line splitting, and prediction
-
 from pathlib import Path
 from PIL import ImageFilter, ImageEnhance, Image
 from scipy import ndimage
@@ -14,7 +10,6 @@ from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from pdf2image import convert_from_path
 from tqdm import tqdm
 
-# Provided helper functions and imports from split_lines.py (segmentation with projection)
 
 def preprocess_for_segmentation(image):
     print(f" preprocess_for_segmentation started")
@@ -102,8 +97,6 @@ def segment_lines(image, methods=['projection'], min_line_height=10):
     print(f"segment_lines finished")
     return all_line_coords
 
-# Preprocessing function
-
 def split_double_page(image: Image.Image):
     w, h = image.size
     mid = w // 2
@@ -128,9 +121,6 @@ def preprocess_image(img):
         return Image.fromarray(result)
 
 def process_single_file(file_path, output_folder_preprocessed, file_index=1, min_line_height=50):
-    """
-    Process a single file and return preprocessed image paths and their line coordinates.
-    """
     print(f" Processing: {file_path.name}")
     results = []
     try:
@@ -165,9 +155,7 @@ def process_single_file(file_path, output_folder_preprocessed, file_index=1, min
     print(f" Processing finished: {file_path.name}")
     return results
 
-# Prediction functions
 
-# Load model once
 model_path = "trocr-base-handwritten-ru"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -204,17 +192,11 @@ def process_image_with_line_coords(image_path: str, line_coords: list):
     print(f"process_image_with_line_coords finished")
     return "\n".join(full_text), all_line_data
 
-# New OCR function combining all logic
-
 def recognize_text_from_file(filepath: str) -> str:
-    """
-    Recognize text from the given file using the integrated processing pipeline.
-    """
     print(f"recognize_text_from_file started for {filepath}")
     # Create a temporary output folder for preprocessed files
     output_folder = Path("data/preprocessed") / Path(filepath).stem
     output_folder.mkdir(parents=True, exist_ok=True)
-    # Get preprocessed pages and line coordinates
     pages_with_coords = process_single_file(Path(filepath), output_folder, file_index=0, min_line_height=50)
     if not pages_with_coords:
         print("No text lines detected for recognition.")
@@ -229,9 +211,7 @@ def recognize_text_from_file(filepath: str) -> str:
     print(f"recognize_text_from_file finished")
     return result_text
 
-# utils for WER calculation
 def wer(reference, hypothesis):
-    """Calculate WER: reference and hypothesis are strings."""
     r, h = reference.split(), hypothesis.split()
     import numpy as np
     d = np.zeros([len(r)+1, len(h)+1], dtype=np.uint32)
@@ -251,9 +231,3 @@ def wer(reference, hypothesis):
     wer_value = d[len(r)][len(h)] / max(1, len(r))
     return wer_value
 
-
-# Test call (commented out)
-#if __name__ == '__main__':
-#    test_path = "path/to/sample/image_or_pdf"
-#    text = recognize_text_from_file(test_path)
-#    print(text)

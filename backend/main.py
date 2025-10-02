@@ -8,11 +8,8 @@ import uvicorn
 from ocr import recognize_text_from_file
 import random
 
-# Assuming these modules exist and function as before
-# from ocr import recognize_text_from_file
 from utils import save_upload_file
 
-# Import new database functions
 from database import (
     save_file_record,
     get_file_record,
@@ -22,7 +19,6 @@ from database import (
     get_all_files
 )
 
-# --- FastAPI Application Setup ---
 app = FastAPI(
     title="Modular Document Transcription API",
     description="API for uploading files and managing their text transcripts.",
@@ -33,14 +29,9 @@ UPLOAD_DIR = Path("~/data")
 TRANSCRIPT_DIR = UPLOAD_DIR / "transcripts"
 TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- API Endpoints ---
 
 @app.post("/files/upload", summary="Upload a file and create its database record")
 async def upload_file_endpoint(file: UploadFile = File(...)):
-    """
-    Receives a file, saves it to the server, and creates a record in the 'files' table.
-    Returns the file's unique ID and metadata.
-    """
     try:
         file_path = save_upload_file(file, str(UPLOAD_DIR))
         ext = Path(file.filename).suffix.lstrip('.')
@@ -70,27 +61,19 @@ async def upload_file_endpoint(file: UploadFile = File(...)):
 
 @app.post("/files/{file_id}/transcribe", summary="Generate a transcript for an existing file")
 async def transcribe_file_endpoint(file_id: int = FastApiPath(..., description="The ID of the file to transcribe.")):
-    """
-    Finds a file by its ID, runs OCR, saves the transcript, and creates a record
-    in the 'file_transcripts' table.
-    """
     file_record = get_file_record(file_id)
     if not file_record:
         raise HTTPException(status_code=404, detail=f"File with ID {file_id} not found.")
 
     try:
-        # Run OCR on the file
         extracted_text = recognize_text_from_file(file_record["file_path"])
         
-        # Save the transcript to a text file
         transcript_filename = f"{Path(file_record['file_name']).stem}_{file_id}.txt"
         transcript_path = TRANSCRIPT_DIR / transcript_filename
         transcript_path.write_text(extracted_text, encoding="utf-8")
 
-        # Create a dummy WER JSON object
         wer_data = {"confidence": random.uniform(0.70, 0.86), "word_count": len(extracted_text.split())}
 
-        # Save the transcript record to the database
         transcript_id = save_transcript_record(
             file_id=file_id,
             transcript_path=str(transcript_path),
@@ -112,7 +95,6 @@ async def transcribe_file_endpoint(file_id: int = FastApiPath(..., description="
 
 @app.get("/transcripts/{transcript_id}", summary="Retrieve a specific transcript record")
 async def get_transcript_endpoint(transcript_id: int):
-    """Fetches a transcript record by its ID."""
     record = get_transcript_record(transcript_id)
     if not record:
         raise HTTPException(status_code=404, detail="Transcript not found.")
@@ -120,7 +102,6 @@ async def get_transcript_endpoint(transcript_id: int):
 
 @app.get("/files/{file_id}/transcripts", summary="List all transcripts for a file")
 async def list_transcripts_for_file_endpoint(file_id: int):
-    """Fetches all transcript records associated with a given file ID."""
     transcripts = get_transcripts_for_file(file_id)
     if not transcripts:
         return {"message": "No transcripts found for this file.", "file_id": file_id, "transcripts": []}
@@ -140,11 +121,7 @@ async def edit_transcript(transcript_id: int, text: str):
 
 @app.get("/files/all")
 async def list_all_files():
-    # Ideally loads from database.py file table.
-    # Replace get_all_files and get_transcripts_for_file with existing DB logic
-    files = []  # get all file records
-    # Assume a function or query fetches all file records from DB:
-    # get_all_files() -> [{'fileid': ..., 'filename': ...}]
+    files = [] 
     for f in get_all_files():
         transcripts = get_transcripts_for_file(f['file_id'])
         wer = transcripts[0]['wer'] if transcripts else None

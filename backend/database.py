@@ -4,8 +4,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import json
 
-# --- Database Configuration ---
-# It's recommended to use environment variables for database credentials
 DB_USER = os.getenv("DB_USER", "imoscow_admin")
 DB_PASS = os.getenv("DB_PASS", "pudge")
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -23,7 +21,6 @@ except Exception as e:
     engine = None
 
 def execute_query(query, params=None):
-    """Executes a given SQL query with parameters and returns the result."""
     if not engine:
         raise ConnectionError("Database engine is not available.")
     try:
@@ -35,12 +32,7 @@ def execute_query(query, params=None):
         print(f"Database query failed: {e}")
         return None
 
-# --- File Operations --
-# -
 def get_all_files():
-    """
-    Возвращает все записи из таблицы files.
-    """
     query = "SELECT file_id, file_path, file_name, file_extension, load_date FROM files"
     result = execute_query(query)
     if result:
@@ -49,11 +41,6 @@ def get_all_files():
 
 
 def save_file_record(file_path: str, file_name: str, file_extension: str) -> dict | None:
-    """
-    Saves a record of a file in the 'files' table.
-    
-    Returns a dictionary with file_id and load_date or None on failure.
-    """
     if not re.match(r'^[a-zA-Z0-9]+$', file_extension):
         raise ValueError("Invalid file extension: only alphanumeric characters are allowed.")
 
@@ -76,7 +63,6 @@ def save_file_record(file_path: str, file_name: str, file_extension: str) -> dic
     return None
 
 def get_file_record(file_id: int) -> dict | None:
-    """Retrieves a file record by its ID."""
     query = "SELECT file_id, file_path, file_name, file_extension, load_date FROM files WHERE file_id = :file_id;"
     result = execute_query(query, {"file_id": file_id})
     if result:
@@ -85,14 +71,8 @@ def get_file_record(file_id: int) -> dict | None:
             return dict(row._mapping)
     return None
 
-# --- Transcript Operations ---
 
 def save_transcript_record(file_id: int, transcript_path: str, wer: dict) -> int | None:
-    """
-    Saves a transcript record linked to a file.
-
-    Returns the new transcript_id or None on failure.
-    """
     query = """
         INSERT INTO file_transcripts (file_id, transcript_path, wer)
         VALUES (:file_id, :transcript_path, :wer)
@@ -111,7 +91,6 @@ def save_transcript_record(file_id: int, transcript_path: str, wer: dict) -> int
     return result.scalar_one_or_none() if result else None
 
 def get_transcript_record(transcript_id: int) -> dict | None:
-    """Retrieves a transcript record by its ID."""
     query = "SELECT transcript_id, file_id, transcript_path, wer FROM file_transcripts WHERE transcript_id = :transcript_id;"
     result = execute_query(query, {"transcript_id": transcript_id})
     if result:
@@ -121,7 +100,6 @@ def get_transcript_record(transcript_id: int) -> dict | None:
     return None
 
 def get_transcripts_for_file(file_id: int) -> list[dict]:
-    """Retrieves all transcript records for a given file ID."""
     query = "SELECT transcript_id, transcript_path, wer, created_at FROM file_transcripts WHERE file_id = :file_id;"
     result = execute_query(query, {"file_id": file_id})
     return [dict(row._mapping) for row in result] if result else []

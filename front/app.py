@@ -8,7 +8,6 @@ from io import BytesIO
 
 # --- Configuration ---
 def get_api_base_url():
-    """Fetches the API base URL from environment variables or Streamlit secrets."""
     # 1. Check for Docker/CI environment variable
     env_url = os.environ.get("API_BASE_URL")
     if env_url:
@@ -26,7 +25,6 @@ def get_api_base_url():
 API_BASE = get_api_base_url()
 TEMP_DIR = "temp_uploads"
 
-# --- Session State Initialization ---
 def initialize_session_state():
     """Initializes session state variables."""
     if "processed_files" not in st.session_state:
@@ -46,14 +44,11 @@ def progress_message(value):
     else:
         return "Сделано!"
 
-# --- UI Layout and Logic ---
 st.title("Archive Vision - Сервис оцифровки архивных документов")
 
-# Create a temporary directory for uploads
 os.makedirs(TEMP_DIR, exist_ok=True)
 initialize_session_state()
 
-# --- File Input Methods ---
 files_to_process = []
 input_method = st.radio(
     "Методы загрузки:",
@@ -74,21 +69,19 @@ if input_method == "Загрузить документы":
                 f.write(uf.getvalue())
             files_to_process.append({"name": uf.name, "path": path, "upload_obj": uf})
 
-# --- Processing Logic ---
 if files_to_process:
     st.write(f"Найдено {len(files_to_process)} файлов для обработки.")
     st.session_state.total_session_files = len(files_to_process)
 
     if st.button("Начать обработку", type="primary"):
         progress_bar = st.progress(0)
-        st.session_state.processed_files = {} # Reset state on new run
+        st.session_state.processed_files = {} 
         
         for i, file_info in enumerate(files_to_process):
             file_name = file_info["name"]
             file_path = file_info["path"]
             
             try:
-                # --- Step 1: Upload the file ---
                 with open(file_path, "rb") as f:
                     files_payload = {"file": (file_name, f, "application/octet-stream")}
                     upload_response = requests.post(f"{API_BASE}/files/upload", files=files_payload)
@@ -98,7 +91,6 @@ if files_to_process:
                     file_id = upload_data.get("file_id")
                     st.info(f"'{file_name}' успешно загружен. File ID: {file_id}")
 
-                    # --- Step 2: Transcribe the file ---
                     transcribe_url = f"{API_BASE}/files/{file_id}/transcribe"
                     transcribe_response = requests.post(transcribe_url)
                     
@@ -107,7 +99,6 @@ if files_to_process:
                         extracted_text = transcribe_data.get("text", "")
                         transcript_id = transcribe_data.get("transcript_id")
                         
-                        # Store results in session state
                         st.session_state.processed_files[file_name] = {
                             "text": extracted_text,
                             "path": file_path,
@@ -133,7 +124,6 @@ if files_to_process:
         st.write(f"Загруженные файлы: {st.session_state.total_session_files}")
         st.write(f"Успешно обработаны: {st.session_state.total_processed_count}")
 
-# --- Display and Edit Results ---
 if st.session_state.processed_files:
     st.header("Посмотреть и отредактировать распознанный текст")
     for name, data in st.session_state.processed_files.items():
@@ -142,7 +132,6 @@ if st.session_state.processed_files:
             
             with col1:
                 try:
-                    # Display PDF as an info box, image as an image
                     if data["path"].lower().endswith('.pdf'):
                         st.info("PDF картинка недоступна.")
                     else:
@@ -169,7 +158,6 @@ if st.session_state.processed_files:
                     else:
                         st.error("Не получилось обновить файл с транскрипциями: " + response.text)
 
-# --- Export Functionality ---
 if st.session_state.processed_files:
     st.header("Экспорт данных")
     
@@ -190,16 +178,14 @@ if st.session_state.processed_files:
             mime = "application/json"
             file_ext = ".json"
         elif export_format == "CSV":
-            # Simple CSV: filename, text
             csv_lines = ['"filename","text"']
             for item in export_data_list:
-                # Basic CSV escaping for double quotes
                 text_escaped = item['text'].replace('"', '""')
                 csv_lines.append(f'"{item["filename"]}","{text_escaped}"')
             export_str = "\n".join(csv_lines)
             mime = "text/csv"
             file_ext = ".csv"
-        else: # TXT
+        else:
             txt_lines = []
             for item in export_data_list:
                 txt_lines.append(f"--- File: {item['filename']} ---\n{item['text']}\n")
@@ -223,7 +209,6 @@ else:
 
 st.write(f"Общее количество обработанных документов: {count}")
 
-# --- Cleanup ---
 if st.button("Очистить данные текущей сессии"):
     try:
         shutil.rmtree(TEMP_DIR)
