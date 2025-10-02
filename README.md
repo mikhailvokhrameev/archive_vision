@@ -12,6 +12,25 @@
 
 ### Используемые технологии:
 
+Backend & API
+* Python
+* FastAPI
+* Uvicorn
+* Pydantic
+
+Machine Learning & Data Science
+* PyTorch
+* Hugging Face Transformers
+* NumPy & SciPy
+* OpenCV & Pillow
+* pdf2image
+
+Frontend & Визуализация
+* Streamlit
+
+База Данных
+* PostgreSQL
+
 ---
 
 ### Структура проекта
