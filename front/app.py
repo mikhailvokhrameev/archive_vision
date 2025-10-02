@@ -6,186 +6,221 @@ from PIL import Image
 import requests
 from io import BytesIO
 
-import os
-
-# Подключение к бекэнду
-def get_api_base():
-    # 1) сначала пробуем переменную окружения (удобно для Docker/CI)
-    env = os.environ.get("API_BASE")
-    if env:
-        return env
-
-    # 2) затем пробуем st.secrets, но в try/except — чтобы не падать, если файла нет
+# --- Configuration ---
+def get_api_base_url():
+    """Fetches the API base URL from environment variables or Streamlit secrets."""
+    # 1. Check for Docker/CI environment variable
+    env_url = os.environ.get("API_BASE_URL")
+    if env_url:
+        return env_url
+    # 2. Check for Streamlit secrets (for deployment)
     try:
-        api = st.secrets.get("api_base")  # если secrets нет — может выбросить исключение
-        if api:
-            return api
+        api_url = st.secrets.get("API_BASE_URL")
+        if api_url:
+            return api_url
     except Exception:
         pass
-
-    # 3) fallback
+    # 3. Fallback for local development
     return "http://127.0.0.1:8000"
 
-API_BASE = get_api_base()
+API_BASE = get_api_base_url()
+TEMP_DIR = "temp_uploads"
 
-st.title("Рукописный перевод архивных документов (интеграция с API)")
+# --- Session State Initialization ---
+def initialize_session_state():
+    """Initializes session state variables."""
+    if "processed_files" not in st.session_state:
+        st.session_state.processed_files = {}
+    if "total_session_files" not in st.session_state:
+        st.session_state.total_session_files = 0
+    if "total_processed_count" not in st.session_state:
+        st.session_state.total_processed_count = 0
 
-# Состояние
-if 'processed' not in st.session_state:
-    st.session_state.processed = {}  # name -> {text, record_id, path, ...}
-if 'total_processed' not in st.session_state:
-    st.session_state.total_processed = 0
-if 'total_session' not in st.session_state:
-    st.session_state.total_session = 0
+# --- UI Layout and Logic ---
+st.title("📄 Document OCR and Transcription Service")
 
-option = st.radio("Способ загрузки", ("Загрузить файлы", "Указать директорию"))
-files = []
-temp_dir = "temp_uploads"
-os.makedirs(temp_dir, exist_ok=True)
+# Create a temporary directory for uploads
+os.makedirs(TEMP_DIR, exist_ok=True)
+initialize_session_state()
 
-if option == "Загрузить файлы":
-    uploaded_files = st.file_uploader("Загрузите изображения (JPG, JPEG, PDF)", type=['jpg', 'jpeg', 'pdf'], accept_multiple_files=True)
+# --- File Input Methods ---
+files_to_process = []
+input_method = st.radio(
+    "Choose input method:",
+    ("Upload Files", "Process Local Directory"),
+    horizontal=True
+)
+
+if input_method == "Upload Files":
+    uploaded_files = st.file_uploader(
+        "Upload JPG, JPEG, or PDF files",
+        type=["jpg", "jpeg", "pdf"],
+        accept_multiple_files=True
+    )
     if uploaded_files:
         for uf in uploaded_files:
-            path = os.path.join(temp_dir, uf.name)
+            path = os.path.join(TEMP_DIR, uf.name)
             with open(path, "wb") as f:
                 f.write(uf.getvalue())
-            if not uf.name.lower().endswith(('.jpg', '.jpeg', '.pdf')):
-                st.error(f"Файл {uf.name} не является изображением JPG/JPEG/PDF и был пропущен.")
-                continue
-            files.append((uf.name, path, uf))
+            files_to_process.append({"name": uf.name, "path": path, "upload_obj": uf})
 
-elif option == "Указать директорию":
-    directory = st.text_input("Путь к директории с изображениями")
-    if directory and os.path.isdir(directory):
-        for f in os.listdir(directory):
-            if f.lower().endswith(('.jpg', '.jpeg')):
-                files.append((f, os.path.join(directory, f), None))
-            else:
-                st.error(f"Файл {f} в директории не является изображением JPG/JPEG и был пропущен.")
+elif input_method == "Process Local Directory":
+    dir_path = st.text_input("Enter the full path to a local directory:")
+    if dir_path and os.path.isdir(dir_path):
+        st.write(f"Scanning directory: {dir_path}")
+        for f_name in os.listdir(dir_path):
+            if f_name.lower().endswith((".jpg", ".jpeg", ".pdf")):
+                files_to_process.append({
+                    "name": f_name,
+                    "path": os.path.join(dir_path, f_name),
+                    "upload_obj": None
+                })
+    elif dir_path:
+        st.error("The provided path is not a valid directory.")
 
-if files:
-    st.write(f"Обнаружено {len(files)} документов для обработки.")
-    st.session_state.total_session = len(files)
+# --- Processing Logic ---
+if files_to_process:
+    st.write(f"Found {len(files_to_process)} files to process.")
+    st.session_state.total_session_files = len(files_to_process)
 
-    if st.button("Обработать (отправить на бэкенд)"):
+    if st.button("✨ Start Processing", type="primary"):
         progress_bar = st.progress(0)
-        for i, (name, path, uploadfile_obj) in enumerate(files):
+        st.session_state.processed_files = {} # Reset state on new run
+        
+        for i, file_info in enumerate(files_to_process):
+            file_name = file_info["name"]
+            file_path = file_info["path"]
+            
             try:
-                # Если у нас есть UploadFile-объект (из streamlit), используем его содержимое
-                if uploadfile_obj is not None:
-                    files_payload = {"file": (name, uploadfile_obj.getvalue())}
-                else:
-                    # читаем локальный файл
-                    with open(path, "rb") as f:
-                        files_payload = {"file": (name, f.read())}
-                # requests expects file-like or tuple. Use BytesIO wrapper:
-                fp = BytesIO(files_payload["file"][1])
-                # !!! Будет возникать ошибка 500 -> после доавбления модели изменить на эндпоинт /recognize !!!
-                response = requests.post(f"{API_BASE}/recognize/", files={"file": (name, fp, "application/octet-stream")})
-                if response.status_code == 200:
-                    j = response.json()
-                    record_id = j.get("record_id")
-                    text = j.get("text", "")
-                    st.session_state.processed[name] = {
-                        'text': text,
-                        'accuracy': None,
-                        'low_conf': None,
-                        'bboxes': [],
-                        'path': path,
-                        'record_id': record_id
-                    }
-                else:
-                    st.error(f"Ошибка распознавания файла {name}: {response.status_code} {response.text}")
-            except Exception as e:
-                st.error(f"Ошибка при отправке файла {name}: {e}")
-            progress_bar.progress((i + 1) / len(files))
-        st.session_state.total_processed += len(files)
-        st.success("Отправка и обработка завершены!")
+                # --- Step 1: Upload the file ---
+                with open(file_path, "rb") as f:
+                    files_payload = {"file": (file_name, f, "application/octet-stream")}
+                    upload_response = requests.post(f"{API_BASE}/files/upload", files=files_payload)
 
-st.write(f"Общее количество обработанных документов (за сеанс): {st.session_state.total_session}")
-st.write(f"Общее количество обработанных документов (всего): {st.session_state.total_processed}")
+                if upload_response.status_code == 200:
+                    upload_data = upload_response.json()
+                    file_id = upload_data.get("file_id")
+                    st.info(f"'{file_name}' uploaded successfully. File ID: {file_id}")
 
-# Показ результатов
-if st.session_state.processed:
-    for name, data in st.session_state.processed.items():
-        st.subheader(f"Документ: {name}")
-        if data.get('accuracy') is not None:
-            st.write(f"Уровень уверенности в распознавании: {data['accuracy']}%")
-        if data.get('low_conf') is not None:
-            st.write(f"Количество элементов с низкой уверенностью: {data['low_conf']}")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            try:
-                img = Image.open(data['path'])
-                st.image(img, caption="Оригинальный образ", use_container_width=True)
-            except Exception:
-                st.write("Не удалось открыть изображение локально.")
-
-        with col2:
-            edited_text = st.text_area("Распознанный текст (верифицируйте и корректируйте)", data['text'], height=300, key=f"text_{name}")
-            if edited_text != data['text']:
-                st.session_state.processed[name]['text'] = edited_text
-                st.write("Локальные правки сохранены. Нажмите кнопку ниже, чтобы отправить их на бэкенд.")
-
-            if st.button(f"Сохранить правки в БД ( {name} )"):
-                rec_id = data.get("record_id")
-                if not rec_id:
-                    st.error("Record ID отсутствует — не удалось обновить на сервере.")
-                else:
-                    payload = {"text": edited_text, "filename": name}
-                    r = requests.put(f"{API_BASE}/recognitions/{rec_id}", json=payload)
-                    if r.status_code == 200:
-                        st.success("Правки успешно сохранены на сервере.")
+                    # --- Step 2: Transcribe the file ---
+                    transcribe_url = f"{API_BASE}/files/{file_id}/transcribe"
+                    transcribe_response = requests.post(transcribe_url)
+                    
+                    if transcribe_response.status_code == 200:
+                        transcribe_data = transcribe_response.json()
+                        extracted_text = transcribe_data.get("text", "")
+                        transcript_id = transcribe_data.get("transcript_id")
+                        
+                        # Store results in session state
+                        st.session_state.processed_files[file_name] = {
+                            "text": extracted_text,
+                            "path": file_path,
+                            "file_id": file_id,
+                            "transcript_id": transcript_id,
+                        }
+                        st.success(f"'{file_name}' transcribed successfully.")
                     else:
-                        st.error(f"Ошибка сохранения: {r.status_code} {r.text}")
+                        st.error(f"Error transcribing '{file_name}': {transcribe_response.status_code} - {transcribe_response.text}")
+                else:
+                    st.error(f"Error uploading '{file_name}': {upload_response.status_code} - {upload_response.text}")
 
-        # Показанные атрибуты (если есть)
-        if data.get('bboxes'):
-            st.write("Извлеченные атрибуты (для верификации):")
-            for bbox in data['bboxes']:
-                st.write(f"- {bbox['text']} (уверенность: {bbox.get('conf', 0)*100:.1f}%)")
+            except Exception as e:
+                st.error(f"An unexpected error occurred with '{file_name}': {e}")
+            
+            progress_bar.progress((i + 1) / len(files_to_process))
 
-# Выгрузка результатов локально
-if st.session_state.processed:
-    st.header("Выгрузка результатов")
-    attributes = st.multiselect("Выберите атрибуты для выгрузки", ["ФИО", "Даты", "Адреса", "Архивные шифры", "Весь текст"])
-    format = st.selectbox("Формат выгрузки", ["JSON", "CSV", "TXT"])
+        st.session_state.total_processed_count = len(st.session_state.processed_files)
+        st.balloons()
+        st.subheader("🎉 Processing Complete!")
+        st.write(f"Files in session: {st.session_state.total_session_files}")
+        st.write(f"Successfully processed: {st.session_state.total_processed_count}")
 
-    if st.button("Сформировать выгрузку"):
-        export_data = {}
-        for name, data in st.session_state.processed.items():
-            export_data[name] = {
-                'text': data['text'] if "Весь текст" in attributes or not attributes else "",
-                'extracted': {"ФИО": "Иванов Иван Иванович"} if "ФИО" in attributes else {},
-            }
+# --- Display and Edit Results ---
+if st.session_state.processed_files:
+    st.header("📝 Review and Edit Transcripts")
+    for name, data in st.session_state.processed_files.items():
+        with st.expander(f"**{name}** (File ID: {data['file_id']}, Transcript ID: {data['transcript_id']})"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                try:
+                    # Display PDF as an info box, image as an image
+                    if data["path"].lower().endswith('.pdf'):
+                        st.info("PDF preview is not available.")
+                    else:
+                        img = Image.open(data["path"])
+                        st.image(img, caption="Image Preview", use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not display preview for {name}. Error: {e}")
 
-        if format == "JSON":
-            export_str = json.dumps(export_data, ensure_ascii=False, indent=4)
+            with col2:
+                edited_text = st.text_area(
+                    "Extracted Text",
+                    value=data["text"],
+                    height=300,
+                    key=f"text_{name}"
+                )
+                
+                if edited_text != data["text"]:
+                    st.session_state.processed_files[name]["text"] = edited_text
+                    st.info("Changes are saved in the session. Re-run export to get updated data.")
+
+                # NOTE: The "Save Changes" button has been removed because the backend in `main.py`
+                # does not include an endpoint to PUT/update a transcript after it has been created.
+                # This functionality would need to be added to the backend API first.
+
+# --- Export Functionality ---
+if st.session_state.processed_files:
+    st.header("💾 Export Data")
+    
+    export_format = st.selectbox("Select export format:", ("JSON", "CSV", "TXT"))
+
+    if st.button("Download Export"):
+        export_data_list = []
+        for name, data in st.session_state.processed_files.items():
+            export_data_list.append({
+                "filename": name,
+                "file_id": data["file_id"],
+                "transcript_id": data["transcript_id"],
+                "text": data["text"]
+            })
+
+        if export_format == "JSON":
+            export_str = json.dumps(export_data_list, ensure_ascii=False, indent=4)
             mime = "application/json"
             file_ext = ".json"
-        elif format == "CSV":
-            export_str = "Документ,Текст\n" + "\n".join([f"{name},{data['text'].replace(chr(10),' ')}" for name, data in export_data.items()])
+        elif export_format == "CSV":
+            # Simple CSV: filename, text
+            csv_lines = ['"filename","text"']
+            for item in export_data_list:
+                # Basic CSV escaping for double quotes
+                text_escaped = item['text'].replace('"', '""')
+                csv_lines.append(f'"{item["filename"]}","{text_escaped}"')
+            export_str = "\n".join(csv_lines)
             mime = "text/csv"
             file_ext = ".csv"
-        else:
-            export_str = "\n".join([f"{name}: {data['text']}" for name, data in export_data.items()])
+        else: # TXT
+            txt_lines = []
+            for item in export_data_list:
+                txt_lines.append(f"--- File: {item['filename']} ---\n{item['text']}\n")
+            export_str = "\n".join(txt_lines)
             mime = "text/plain"
             file_ext = ".txt"
 
         st.download_button(
-            label="Скачать выгрузку",
+            label="Download Data",
             data=export_str,
             file_name=f"archive_export{file_ext}",
-            mime=mime
+            mime=mime,
         )
 
-# Очистка временных файлов
-if st.button("Очистить временные файлы"):
+# --- Cleanup ---
+if st.button("🧹 Clear Session and Files"):
     try:
-        shutil.rmtree(temp_dir)
-    except Exception:
-        pass
-    st.session_state.processed = {}
-    st.write("Временные файлы удалены и сессия очищена.")
+        shutil.rmtree(TEMP_DIR)
+    except Exception as e:
+        st.error(f"Could not delete temp directory: {e}")
+    st.session_state.clear()
+    st.success("Session cleared. Please refresh the page.")
+    st.rerun()
+
