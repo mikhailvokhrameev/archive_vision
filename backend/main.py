@@ -1,100 +1,128 @@
-# main.py
 import io
 import json
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, File, UploadFile, HTTPException, Path as FastApiPath
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import uvicorn
-
-# CORS
-from fastapi.middleware.cors import CORSMiddleware
-
-# Импортируем наши модули (заглушки выше)
 from ocr import recognize_text_from_file
+
+# Assuming these modules exist and function as before
+# from ocr import recognize_text_from_file
 from utils import save_upload_file
-from database import save_recognition, update_recognition, get_recognition, save_file_record
 
+# Import new database functions
+from database import (
+    save_file_record,
+    get_file_record,
+    save_transcript_record,
+    get_transcript_record,
+    get_transcripts_for_file
+)
+
+# --- FastAPI Application Setup ---
 app = FastAPI(
-    title="Modular Image to Text API",
-    description="API для распознавания текста, разделенное на модули.",
-    version="1.1.0"
+    title="Modular Document Transcription API",
+    description="API for uploading files and managing their text transcripts.",
+    version="2.0.0"
 )
 
-# Разрешаем запросы с Streamlit (обычно localhost:8501)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost", "http://127.0.0.1",],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+UPLOAD_DIR = Path("./data")
+TRANSCRIPT_DIR = UPLOAD_DIR / "transcripts"
+TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
-class TextPayload(BaseModel):
-    text: str
-    filename: str = "extracted_text"
+# --- API Endpoints ---
 
-# Папка для сохранения загруженных файлов
-UPLOAD_DIR = "./data/"
-
-@app.post("/files/upload/", summary="Загрузить файл и сохранить запись в таблицу files (без OCR)")
-async def upload_file_to_files_table(file: UploadFile = File(...)):
+@app.post("/files/upload", summary="Upload a file and create its database record")
+async def upload_file_endpoint(file: UploadFile = File(...)):
+    """
+    Receives a file, saves it to the server, and creates a record in the 'files' table.
+    Returns the file's unique ID and metadata.
+    """
     try:
-        filepath = save_upload_file(file, UPLOAD_DIR)
-        ext = Path(file.filename).suffix.lstrip(".")
+        file_path = save_upload_file(file, str(UPLOAD_DIR))
+        ext = Path(file.filename).suffix.lstrip('.')
         if not ext:
-            raise HTTPException(status_code=400, detail="Не удалось определить расширение файла.")
-        ext = ext.lower()
-        saved = save_file_record(filepath, file.filename, ext)
-        if saved is None:
-            raise HTTPException(status_code=500, detail="Не удалось сохранить запись файла в БД.")
-        return JSONResponse(
-            content={
-                "file_id": saved["file_id"],
-                "file_name": file.filename,
-                "file_extension": ext,
-                "file_path": filepath,
-                "load_date": saved["load_date"].isoformat()
-            }
+            raise HTTPException(status_code=400, detail="File must have an extension.")
+
+        saved_record = save_file_record(
+            file_path=file_path,
+            file_name=file.filename,
+            file_extension=ext
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Произошла ошибка: {e}")
 
-@app.post("/recognize/", summary="Загрузить, распознать и сохранить")
-async def recognize_endpoint(file: UploadFile = File(...)):
+        if saved_record is None:
+            raise HTTPException(status_code=500, detail="Failed to save file record to the database.")
+
+        return JSONResponse(content={
+            "message": "File uploaded successfully.",
+            "file_id": saved_record["file_id"],
+            "file_name": file.filename,
+            "load_date": saved_record["load_date"].isoformat()
+        })
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+
+@app.post("/files/{file_id}/transcribe", summary="Generate a transcript for an existing file")
+async def transcribe_file_endpoint(file_id: int = FastApiPath(..., description="The ID of the file to transcribe.")):
+    """
+    Finds a file by its ID, runs OCR, saves the transcript, and creates a record
+    in the 'file_transcripts' table.
+    """
+    file_record = get_file_record(file_id)
+    if not file_record:
+        raise HTTPException(status_code=404, detail=f"File with ID {file_id} not found.")
+
     try:
-        filepath = save_upload_file(file, UPLOAD_DIR)
-        extracted_text = recognize_text_from_file(filepath)
-        record_id = save_recognition(file.filename, extracted_text)
-        if record_id is None:
-            raise HTTPException(status_code=500, detail="Не удалось сохранить результат в БД.")
-        return JSONResponse(content={"record_id": record_id, "text": extracted_text})
+        # Run OCR on the file
+        extracted_text = recognize_text_from_file(file_record["file_path"])
+        
+        # Save the transcript to a text file
+        transcript_filename = f"{Path(file_record['file_name']).stem}_{file_id}.txt"
+        transcript_path = TRANSCRIPT_DIR / transcript_filename
+        transcript_path.write_text(extracted_text, encoding="utf-8")
+
+        # Create a dummy WER JSON object
+        wer_data = {"confidence": 0.95, "word_count": len(extracted_text.split())}
+
+        # Save the transcript record to the database
+        transcript_id = save_transcript_record(
+            file_id=file_id,
+            transcript_path=str(transcript_path),
+            wer=wer_data
+        )
+
+        if transcript_id is None:
+            raise HTTPException(status_code=500, detail="Failed to save transcript record.")
+
+        return JSONResponse(content={
+            "message": "Transcription successful.",
+            "transcript_id": transcript_id,
+            "file_id": file_id,
+            "transcript_path": str(transcript_path),
+            "text": extracted_text
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Произошла ошибка: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred during transcription: {e}")
 
-@app.post("/download/txt/", summary="Скачать текст в формате .txt")
-async def download_as_txt(payload: TextPayload):
-    file_like = io.BytesIO(payload.text.encode("utf-8"))
-    filename = f"{payload.filename}.txt"
-    headers = {"Content-Disposition": f"attachment; filename=\"{filename}\""}
-    return StreamingResponse(file_like, media_type="text/plain", headers=headers)
+@app.get("/transcripts/{transcript_id}", summary="Retrieve a specific transcript record")
+async def get_transcript_endpoint(transcript_id: int):
+    """Fetches a transcript record by its ID."""
+    record = get_transcript_record(transcript_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Transcript not found.")
+    return record
 
-@app.post("/download/json/", summary="Скачать текст в формате .json")
-async def download_as_json(payload: TextPayload):
-    json_content = json.dumps({"source_filename": payload.filename, "text": payload.text}, ensure_ascii=False, indent=4)
-    file_like = io.BytesIO(json_content.encode("utf-8"))
-    filename = f"{payload.filename}.json"
-    headers = {"Content-Disposition": f"attachment; filename=\"{filename}\""}
-    return StreamingResponse(file_like, media_type="application/json", headers=headers)
-
-@app.put("/recognitions/{record_id}", summary="Обновить распознанный текст")
-async def update_text_endpoint(record_id: int, payload: TextPayload):
-    success = update_recognition(record_id, payload.text)
-    if not success:
-        raise HTTPException(status_code=404, detail="Запись с таким ID не найдена или не удалось обновить.")
-    return {"message": "Текст успешно обновлен"}
+@app.get("/files/{file_id}/transcripts", summary="List all transcripts for a file")
+async def list_transcripts_for_file_endpoint(file_id: int):
+    """Fetches all transcript records associated with a given file ID."""
+    transcripts = get_transcripts_for_file(file_id)
+    if not transcripts:
+        return {"message": "No transcripts found for this file.", "file_id": file_id, "transcripts": []}
+    return {"file_id": file_id, "transcripts": transcripts}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

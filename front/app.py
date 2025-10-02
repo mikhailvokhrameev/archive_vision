@@ -82,7 +82,7 @@ if files:
                 # requests expects file-like or tuple. Use BytesIO wrapper:
                 fp = BytesIO(files_payload["file"][1])
                 # !!! Будет возникать ошибка 500 -> после доавбления модели изменить на эндпоинт /recognize !!!
-                response = requests.post(f"{API_BASE}/files/upload/", files={"file": (name, fp, "application/octet-stream")})
+                response = requests.post(f"{API_BASE}/recognize/", files={"file": (name, fp, "application/octet-stream")})
                 if response.status_code == 200:
                     j = response.json()
                     record_id = j.get("record_id")
