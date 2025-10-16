@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import uvicorn
 from ocr import recognize_text_from_file
 import random
+import os
 
 from utils import save_upload_file
 
@@ -134,4 +135,4 @@ async def list_all_files():
     return files
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

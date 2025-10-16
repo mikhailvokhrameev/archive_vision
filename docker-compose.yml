@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: archive
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/archive
+    depends_on:
+      - postgres
+
+  frontend:
+    build: ./front    # ← ПУТЬ К ТВОЕЙ ПАПКЕ
+    ports:
+      - "8501:8501"
+    environment:
+      API_BASE_URL: http://localhost:8001
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

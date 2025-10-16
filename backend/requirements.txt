@@ -1,0 +1,16 @@
+-i https://pypi.tuna.tsinghua.edu.cn/simple
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+psycopg2-binary
+pillow
+pytesseract
+python-dotenv
+pdf2image
+scipy
+numpy
+opencv-python-headless
+torch
+torchvision
+transformers

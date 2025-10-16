@@ -4,13 +4,33 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import json
 
-DB_USER = os.getenv("DB_USER", "imoscow_admin")
-DB_PASS = os.getenv("DB_PASS", "pudge")
-DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "postgres123")
+DB_HOST = os.getenv("DB_HOST", "postgres")  # Имя сервиса в Docker Compose
 DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "imoscow_test")
+DB_NAME = os.getenv("DB_NAME", "archive")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+def wait_for_db():
+    """Ждем пока база данных станет доступной"""
+    for i in range(10):
+        try:
+            engine = create_engine(DATABASE_URL)
+            with engine.connect() as connection:
+                print("✅ Database connection established successfully.")
+                return engine
+        except Exception as e:
+            print(f"⏳ Database not ready yet (attempt {i+1}/10): {e}")
+            time.sleep(5)
+    raise Exception("❌ Could not connect to database after 10 attempts")
+
+# Используем функцию ожидания
+try:
+    engine = wait_for_db()
+except Exception as e:
+    print(f"Failed to connect to the database: {e}")
+    engine = None
 
 try:
     engine = create_engine(DATABASE_URL)
@@ -19,6 +39,54 @@ try:
 except Exception as e:
     print(f"Failed to connect to the database: {e}")
     engine = None
+    
+try:
+    engine = create_engine(DATABASE_URL)
+    with engine.connect() as connection:
+        print("Database connection established successfully.")
+except Exception as e:
+    print(f"Failed to connect to the database: {e}")
+    engine = None
+
+# === ДОБАВЬТЕ ЭТОТ КОД ===
+def create_tables_if_not_exist():
+    """Create necessary tables if they don't exist"""
+    if not engine:
+        print("Cannot create tables: database engine not available")
+        return
+    
+    tables_creation_queries = [
+        """
+        CREATE TABLE IF NOT EXISTS files (
+            file_id SERIAL PRIMARY KEY,
+            file_path VARCHAR(500) NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_extension VARCHAR(10) NOT NULL,
+            load_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS file_transcripts (
+            transcript_id SERIAL PRIMARY KEY,
+            file_id INTEGER REFERENCES files(file_id),
+            transcript_path VARCHAR(500),
+            wer JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    ]
+    
+    try:
+        with engine.connect() as connection:
+            for query in tables_creation_queries:
+                connection.execute(text(query))
+            connection.commit()
+        print("✅ Tables created/verified successfully")
+    except Exception as e:
+        print(f"❌ Error creating tables: {e}")
+
+# Вызовите функцию при импорте
+create_tables_if_not_exist()
 
 def execute_query(query, params=None):
     if not engine:

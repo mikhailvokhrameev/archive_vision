@@ -20,7 +20,7 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8000"
+    return "http://127.0.0.1:8001"
 
 API_BASE = get_api_base_url()
 TEMP_DIR = "temp_uploads"
@@ -52,7 +52,7 @@ initialize_session_state()
 files_to_process = []
 input_method = st.radio(
     "Методы загрузки:",
-    "Загрузить документы",
+    ["Загрузить документы"],
     horizontal=True
 )
 
