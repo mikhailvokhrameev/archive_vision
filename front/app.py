@@ -28,13 +28,29 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8000"
+    return "http://127.0.0.1:8001/api/v1"
 
 API_BASE = get_api_base_url()
 TEMP_DIR = "temp_uploads"
 
 # Initialize temp directory
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+def process_file(file_id):
+    """Start processing uploaded file"""
+    try:
+        response = requests.post(
+            f"{API_BASE}/documents/{file_id}/process",
+            timeout=600  # 10 минут на обработку
+        )
+        
+        if response.status_code == 202:
+            return {"success": True, "message": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+    
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # --- Session State Initialization ---
 def initialize_session_state():
@@ -50,45 +66,53 @@ def initialize_session_state():
 
 initialize_session_state()
 
+
+
 # --- Backend API Functions ---
 def upload_file_to_backend(uploaded_file):
     """Upload file to backend and return file_id"""
     try:
-        # Save temp file
-        temp_path = os.path.join(TEMP_DIR, uploaded_file.name)
+        # Сохраняем файл временно
+        temp_path = f"temp_{uploaded_file.name}"
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.getvalue())
         
-        # Upload to backend
+        # Загружаем на бэкенд
         with open(temp_path, "rb") as f:
-            files_payload = {"file": (uploaded_file.name, f, uploaded_file.type)}
-            response = requests.post(f"{API_BASE}/files/upload", files=files_payload)
+            files = [("files", (uploaded_file.name, f, uploaded_file.type))]
+            response = requests.post(
+                f"{API_BASE}/documents/upload",
+                files=files,
+                timeout=300
+            )
         
-        if response.status_code == 200:
+        if response.status_code == 201:
             data = response.json()
-            return {
-                "success": True,
-                "file_id": data.get("file_id"),
-                "temp_path": temp_path
-            }
+            if isinstance(data, list) and len(data) > 0:
+                file_id = data[0]["file_id"]
+                return {
+                    "success": True, 
+                    "file_id": file_id,
+                    "temp_path": temp_path  # ← Добавьте эту строку
+                }
+            else:
+                return {"success": False, "error": "Пустой ответ"}
         else:
-            return {
-                "success": False,
-                "error": f"Ошибка загрузки: {response.status_code} - {response.text}"
-            }
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+    
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 def transcribe_file(file_id):
     """Start transcription for uploaded file"""
     try:
-        response = requests.post(f"{API_BASE}/files/{file_id}/transcribe")
-        if response.status_code == 200:
-            data = response.json()
+        response = requests.post(f"{API_BASE}/documents/{file_id}/process")
+        if response.status_code == 202:
+            # 202 = обработка запущена, но еще не завершена
             return {
                 "success": True,
-                "text": data.get("text", ""),
-                "transcript_id": data.get("transcript_id")
+                "file_id": file_id,  # Сохраняем file_id для последующего опроса
+                "message": "Обработка запущена"
             }
         else:
             return {
@@ -97,6 +121,38 @@ def transcribe_file(file_id):
             }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+def wait_for_processing(file_id, max_wait=600):
+    """Wait for document processing to complete with progress tracking"""
+    start_time = time.time()
+    
+    while time.time() - start_time < max_wait:
+        try:
+            # Проверяем статус
+            response = requests.get(
+                f"{API_BASE}/documents/process-status/{file_id}",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                status = data.get("status")
+                progress = data.get("progress", 0)
+                
+                # Возвращаем текущий прогресс
+                if status == "completed":
+                    return {"success": True, "completed": True, "progress": 100}
+                elif status == "failed":
+                    return {"success": False, "error": "Обработка не удалась"}
+                else:
+                    return {"success": True, "completed": False, "progress": progress}
+            
+            time.sleep(2)
+        
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    return {"success": False, "error": "Превышено время ожидания"}
 
 def update_transcript(transcript_id, new_text):
     """Update transcript text"""
@@ -109,10 +165,27 @@ def update_transcript(transcript_id, new_text):
     except Exception:
         return False
 
+def get_transcript(file_id):
+    """Get processing results"""
+    try:
+        response = requests.get(
+            f"{API_BASE}/documents/{file_id}/transcript",
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+    
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def get_all_files_count():
     """Get total count of processed files"""
     try:
-        response = requests.get(f"{API_BASE}/files/all")
+        response = requests.get(f"{API_BASE}/documents/all")
         if response.status_code == 200:
             files = response.json()
             return len(files)
@@ -123,7 +196,7 @@ def get_all_files_count():
 def check_backend_status():
     """Check if backend is online"""
     try:
-        response = requests.get(f"{API_BASE}/files/all", timeout=2)
+        response = requests.get(f"{API_BASE}/documents/all", timeout=2)
         return response.status_code == 200
     except:
         return False
@@ -641,24 +714,10 @@ def process_documents_batch(uploaded_files):
     st.session_state.total_session_files = len(uploaded_files)
     st.session_state.processed_files = {}
     
-    progress_bar = st.progress(0)
-    status_container = st.empty()
-    
     for i, uploaded_file in enumerate(uploaded_files):
         file_name = uploaded_file.name
         
-        # Progress message
-        progress = (i + 1) / len(uploaded_files)
-        if progress < 0.2:
-            msg = "Начата расшифровка, ждите..."
-        elif progress < 0.8:
-            msg = "Обрабатываем, еще чуть-чуть...."
-        elif progress < 1.0:
-            msg = "Почти закончили!"
-        else:
-            msg = "Сделано!"
-        
-        status_container.info(f"📄 Обработка: **{file_name}** - {msg}")
+        st.info(f"📄 Обработка: **{file_name}**")
         
         # 1. Upload file
         upload_result = upload_file_to_backend(uploaded_file)
@@ -669,36 +728,59 @@ def process_documents_batch(uploaded_files):
         file_id = upload_result["file_id"]
         temp_path = upload_result["temp_path"]
         
-        # 2. Transcribe
+        # 2. Start transcription
         transcribe_result = transcribe_file(file_id)
         if not transcribe_result["success"]:
-            st.error(f"❌ Ошибка расшифровки {file_name}: {transcribe_result['error']}")
+            st.error(f"❌ Ошибка запуска обработки {file_name}: {transcribe_result['error']}")
             continue
         
-        # 3. Save to session state
-        st.session_state.processed_files[file_name] = {
-            "text": transcribe_result["text"],
-            "path": temp_path,
-            "file_id": file_id,
-            "transcript_id": transcribe_result["transcript_id"],
-        }
+        # 3. Wait for completion with progress bar
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
-        progress_bar.progress(progress)
+        while True:
+            wait_result = wait_for_processing(file_id)
+            
+            if not wait_result["success"]:
+                st.error(f"❌ Ошибка ожидания {file_name}: {wait_result['error']}")
+                break
+            
+            progress = wait_result.get("progress", 0)
+            progress_bar.progress(int(progress))
+            status_text.text(f"Прогресс: {progress:.1f}%")
+            
+            if wait_result.get("completed"):
+                # 4. Get final result
+                result = get_transcript(file_id)
+                if result["success"]:
+                    transcript_data = result["data"]
+                    st.session_state.processed_files[file_name] = {
+                        "text": transcript_data.get("text", ""),
+                        "path": temp_path,
+                        "file_id": file_id,
+                        "transcript_id": transcript_data.get("transcript_id")
+                    }
+                    st.success(f"✅ {file_name} обработан!")
+                else:
+                    st.error(f"❌ Не удалось получить результат для {file_name}")
+                break
+            
+            time.sleep(2)
     
     st.session_state.total_processed_count = len(st.session_state.processed_files)
     
     # Success message
     st.balloons()
-    st.markdown("""
+    st.markdown(f"""
     <div class="success-box fade-in">
         <h3 style="margin-top: 0; color: #558B2F;">✅ Обработка Завершена!</h3>
         <p style="color: #33691E; font-size: 1.1rem;">
-            Загружено файлов: <strong>{}</strong><br>
-            Успешно обработано: <strong>{}</strong>
+            Загружено файлов: <strong>{st.session_state.total_session_files}</strong><br>
+            Успешно обработано: <strong>{st.session_state.total_processed_count}</strong>
         </p>
     </div>
-    """.format(st.session_state.total_session_files, st.session_state.total_processed_count), 
-    unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
 
 def display_results():
     """Display processing results in elegant format"""
