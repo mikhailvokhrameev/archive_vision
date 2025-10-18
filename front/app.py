@@ -1,8 +1,133 @@
+"""
+Moscow Archives Document Recognition System
+A premium web interface for automated document processing and indexing
+"""
+
 import streamlit as st
-import base64
+import requests
+import os
+import json
 from pathlib import Path
 import time
 from datetime import datetime
+from PIL import Image
+from io import BytesIO
+
+# --- Backend Configuration ---
+def get_api_base_url():
+    """Get API base URL from environment, secrets, or default"""
+    # 1. Check for Docker/CI environment variable
+    env_url = os.environ.get("API_BASE_URL")
+    if env_url:
+        return env_url
+    # 2. Check for Streamlit secrets (for deployment)
+    try:
+        api_url = st.secrets.get("API_BASE_URL")
+        if api_url:
+            return api_url
+    except Exception:
+        pass
+    # 3. Fallback for local development
+    return "http://127.0.0.1:8000"
+
+API_BASE = get_api_base_url()
+TEMP_DIR = "temp_uploads"
+
+# Initialize temp directory
+os.makedirs(TEMP_DIR, exist_ok=True)
+
+# --- Session State Initialization ---
+def initialize_session_state():
+    """Initialize session state variables"""
+    if "processed_files" not in st.session_state:
+        st.session_state.processed_files = {}
+    if "total_session_files" not in st.session_state:
+        st.session_state.total_session_files = 0
+    if "total_processed_count" not in st.session_state:
+        st.session_state.total_processed_count = 0
+    if "current_file_id" not in st.session_state:
+        st.session_state.current_file_id = None
+
+initialize_session_state()
+
+# --- Backend API Functions ---
+def upload_file_to_backend(uploaded_file):
+    """Upload file to backend and return file_id"""
+    try:
+        # Save temp file
+        temp_path = os.path.join(TEMP_DIR, uploaded_file.name)
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getvalue())
+        
+        # Upload to backend
+        with open(temp_path, "rb") as f:
+            files_payload = {"file": (uploaded_file.name, f, uploaded_file.type)}
+            response = requests.post(f"{API_BASE}/files/upload", files=files_payload)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "success": True,
+                "file_id": data.get("file_id"),
+                "temp_path": temp_path
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Ошибка загрузки: {response.status_code} - {response.text}"
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def transcribe_file(file_id):
+    """Start transcription for uploaded file"""
+    try:
+        response = requests.post(f"{API_BASE}/files/{file_id}/transcribe")
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "success": True,
+                "text": data.get("text", ""),
+                "transcript_id": data.get("transcript_id")
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Ошибка расшифровки: {response.status_code} - {response.text}"
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def update_transcript(transcript_id, new_text):
+    """Update transcript text"""
+    try:
+        response = requests.post(
+            f"{API_BASE}/transcripts/{transcript_id}/edit",
+            json={"text": new_text}
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+def get_all_files_count():
+    """Get total count of processed files"""
+    try:
+        response = requests.get(f"{API_BASE}/files/all")
+        if response.status_code == 200:
+            files = response.json()
+            return len(files)
+        return 0
+    except Exception:
+        return 0
+
+def check_backend_status():
+    """Check if backend is online"""
+    try:
+        response = requests.get(f"{API_BASE}/files/all", timeout=2)
+        return response.status_code == 200
+    except:
+        return False
+
 
 # Page configuration - must be first Streamlit command
 st.set_page_config(
@@ -12,7 +137,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for premium archival aesthetic
+# CSS Variables and Base Styles
+CSS_VARIABLES = {
+    'primary-beige': '#F5EFE6',
+    'secondary-brown': '#8B7355', 
+    'accent-gold': '#D4AF37',
+    'dark-brown': '#5C4033',
+    'light-parchment': '#FAF6F0',
+    'deep-sepia': '#704214',
+    'warm-cream': '#FFF8E7',
+    'border-vintage': 'rgba(139, 115, 85, 0.3)'
+}
+
+# Reusable CSS components
 def load_custom_css():
     css = """
     <style>
@@ -34,6 +171,50 @@ def load_custom_css():
     /* Global styling */
     .stApp {
         background: linear-gradient(135deg, #FAF6F0 0%, #F5EFE6 100%);
+    }
+    /* FULLSCREEN HERO */
+    .hero-fullscreen {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .hero-icon {
+        font-size: 5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .hero-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 4.5rem;
+        font-weight: 700;
+        color: var(--dark-brown);
+        letter-spacing: 3px;
+    }
+
+    .hero-subtitle {
+        font-family: 'Lora', serif;
+        font-size: 1.8rem;
+        color: var(--secondary-brown);
+        font-style: italic;
+        margin-top: 1rem;
+    }
+
+    .hero-tagline {
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: 1.2rem;
+        color: var(--deep-sepia);
+        margin-top: 1rem;
+    }
+
+    .hero-divider {
+        color: var(--accent-gold);
+        font-size: 2.5rem;
+        margin: 2rem 0;
     }
     
     /* Custom header with ornamental design */
@@ -147,11 +328,47 @@ def load_custom_css():
         background: var(--warm-cream);
         box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
     }
-    
-    /* Custom buttons */
+     /* Центрируем и ограничиваем ширину самого uploader */
+    [data-testid="stFileUploader"] { max-width: 820px; width: 100%; margin: 0 auto; }
+
+    /* Делаем dropzone пунктирным прямоугольником (вся область — активная зона dnd) */
+    [data-testid="stFileUploaderDropzone"] {
+        border: 3px dashed #8B7355 !important;
+        background: var(--light-parchment) !important;
+        border-radius: 20px !important;
+        min-height: 260px;
+        display: flex; justify-content: center; align-items: center;
+        padding: 24px;
+    }
+    /* Внутреннее выравнивание контента dropzone */
+    [data-testid="stFileUploaderDropzone"] > div {
+        display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+
+    /* Кастомный текст/иконка подсказки */
+    [data-testid="stFileUploaderDropzoneInstructions"] span { display: none !important; }
+    [data-testid="stFileUploaderDropzoneInstructions"] > div::before {
+        content: "☁️"; font-size: 42px; color: #8B7355; display: block; text-align: center; margin-bottom: 6px;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] > div::after {
+        content: "Перетащите файл сюда или нажмите для выбора";
+        color: #5C4033; font-size: 16px; opacity: 0.9; display: block; text-align: center;
+    }
+
+    /* Кнопка внутри прямоугольника */
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"],
+    [data-testid="stFileUploaderDropzone"] [data-testid="stbaseButton-secondary"] {
+        background-color: #8B7355 !important; color: #fff !important;
+        border: none !important; border-radius: 10px !important; padding: 10px 18px !important;
+    }
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]:hover,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stbaseButton-secondary"]:hover {
+        background-color: #7A654B !important;
+    }
+    /* Custom buttons - светлые кнопки */
     .stButton>button {
         background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%);
-        color: var(--warm-cream);
+        color: var(--warm-cream) !important;
         border: none;
         border-radius: 12px;
         padding: 0.8rem 2.5rem;
@@ -162,11 +379,11 @@ def load_custom_css():
         transition: all 0.3s ease;
         box-shadow: 0 4px 15px rgba(92, 64, 51, 0.3);
     }
-    
-    .stButton>button:hover {
-        background: linear-gradient(135deg, var(--deep-sepia) 0%, var(--dark-brown) 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(92, 64, 51, 0.4);
+
+    /* Убедитесь, что все текстовые элементы внутри кнопки светлые */
+    .stButton>button * {
+        color: var(--warm-cream) !important;
+        -webkit-text-fill-color: var(--warm-cream) !important;
     }
     
     /* Sidebar styling */
@@ -312,11 +529,12 @@ def load_custom_css():
 
 def render_header():
     st.markdown("""
-    <div class="archive-header fade-in">
-        <div class="archive-title">📜 Архив Москвы</div>
-        <div class="archive-subtitle">Автоматизированная система распознавания документов</div>
-        <div class="archive-tagline">Сохраняем историю с помощью искусственного интеллекта</div>
-        <div class="ornamental-divider">◈ ◆ ◈</div>
+    <div class="hero-fullscreen fade-in">
+        <div class="hero-icon">📜</div>
+        <div class="hero-title">Archive Vision</div>
+        <div class="hero-subtitle">Автоматизированная система распознавания документов</div>
+        <div class="hero-tagline">Сохраняем историю с помощью искусственного интеллекта</div>
+        <div class="hero-divider">◈ ◆ ◈</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -375,154 +593,120 @@ def render_features():
             """, unsafe_allow_html=True)
 
 def render_upload_section():
-    """Render document upload interface"""
+    """Upload section with backend integration"""
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; font-family: Playfair Display, serif; color: #5C4033; margin-bottom: 2rem;'>📤 Upload Archival Documents</h2>", unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("""
-        <div class="upload-zone">
-            <h3 style="color: #8B7355; font-family: Lora, serif;">Drag & Drop Your Documents</h3>
-            <p style="color: #704214; margin-top: 1rem;">Supported formats: PDF, JPG, PNG, TIFF</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        uploaded_file = st.file_uploader(
-            "Choose a file",
-            type=['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'tif'],
-            label_visibility="collapsed"
-        )
-        
-        if uploaded_file:
-            st.markdown("""
-            <div class="info-box">
-                <strong>📄 File Details</strong><br>
-                Successfully uploaded: <strong>{}</strong><br>
-                File size: <strong>{:.2f} MB</strong>
-            </div>
-            """.format(uploaded_file.name, uploaded_file.size / (1024*1024)), unsafe_allow_html=True)
-            
-            # Show preview
-            if uploaded_file.type.startswith('image'):
-                st.markdown("<div class='document-preview'>", unsafe_allow_html=True)
-                st.image(uploaded_file, caption="Document Preview", use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-            
-            # Processing section
-            col_a, col_b, col_c = st.columns([1, 2, 1])
-            with col_b:
-                if st.button("🚀 Process Document", use_container_width=True):
-                    process_document(uploaded_file)
-    
-    with col2:
-        st.markdown("""
-        <div class="info-box">
-            <h4 style="margin-top: 0; color: #5C4033;">💡 Processing Tips</h4>
-            <ul style="line-height: 1.8;">
-                <li>Ensure documents are well-lit and in focus</li>
-                <li>Higher resolution images yield better results</li>
-                <li>Multi-page PDFs are fully supported</li>
-                <li>Pre-revolutionary cursive: 90%+ accuracy</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="info-box" style="background: rgba(139, 195, 74, 0.1); border-left: 5px solid #8BC34A;">
-            <h4 style="margin-top: 0; color: #5C4033;">✨ Special Features</h4>
-            <ul style="line-height: 1.8;">
-                <li>Church registry books (метрические книги)</li>
-                <li>Census records (ревизские сказки)</li>
-                <li>Birth & marriage certificates</li>
-                <li>Property documents</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown(
+        "<h2 style='text-align: center; font-family: Playfair Display, serif; color: #5C4033; margin-bottom: 1.5rem;'>📤 Загрузка Архивных Документов</h2>",
+        unsafe_allow_html=True
+    )
 
-def process_document(file):
-    """Simulate document processing with elegant progress indicators"""
+    col_a, col_b, col_c = st.columns([1, 2, 1])
+    with col_b:
+        uploaded_files = st.file_uploader(
+            label="",
+            type=['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'tif'],
+            accept_multiple_files=True,
+            label_visibility="collapsed",
+            help="Перетащите файлы или нажмите для выбора. Поддерживаются PDF, JPG, PNG, TIFF"
+        )
+
+        if uploaded_files:
+            st.markdown(f"""
+            <div class="info-box fade-in" style="color: #8B7355">
+              <strong>📄 Загружено файлов: {len(uploaded_files)}</strong><br>
+              Общий размер: <strong>{sum(f.size for f in uploaded_files) / (1024*1024):.2f} МБ</strong>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Preview first image
+            for uf in uploaded_files:
+                if uf.type.startswith("image"):
+                    st.markdown("<div class='document-preview fade-in'>", unsafe_allow_html=True)
+                    st.image(uf, caption=f"Предпросмотр: {uf.name}", use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    break
+
+            # Process button
+            if st.button("🚀 Расшифровать Документы", use_container_width=True, key="process_btn"):
+                process_documents_batch(uploaded_files)
+                
+def process_documents_batch(uploaded_files):
+    """Process multiple documents with backend"""
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>⚙️ Processing Document</h3>", unsafe_allow_html=True)
+    st.markdown(
+        "<h3 style='text-align: center; color: #8B7355; font-family: Playfair Display, serif;'>⚙️ Расшифровка Документов</h3>",
+        unsafe_allow_html=True
+    )
     
-    # Processing stages
-    stages = [
-        ("📸 Image Preprocessing", "Enhancing contrast and removing noise..."),
-        ("🔤 Text Detection", "Identifying text regions and layout..."),
-        ("✍️ Handwriting Recognition", "Analyzing pre-revolutionary script..."),
-        ("🏷️ Metadata Extraction", "Extracting names, dates, and locations..."),
-        ("💾 Database Integration", "Indexing and storing results...")
-    ]
+    st.session_state.total_session_files = len(uploaded_files)
+    st.session_state.processed_files = {}
     
     progress_bar = st.progress(0)
-    status_text = st.empty()
+    status_container = st.empty()
     
-    for idx, (stage, description) in enumerate(stages):
-        status_text.markdown(f"""
-        <div class="info-box fade-in">
-            <strong>{stage}</strong><br>
-            {description}
-        </div>
-        """, unsafe_allow_html=True)
+    for i, uploaded_file in enumerate(uploaded_files):
+        file_name = uploaded_file.name
         
-        time.sleep(0.8)
-        progress_bar.progress((idx + 1) / len(stages))
+        # Progress message
+        progress = (i + 1) / len(uploaded_files)
+        if progress < 0.2:
+            msg = "Начата расшифровка, ждите..."
+        elif progress < 0.8:
+            msg = "Обрабатываем, еще чуть-чуть...."
+        elif progress < 1.0:
+            msg = "Почти закончили!"
+        else:
+            msg = "Сделано!"
+        
+        status_container.info(f"📄 Обработка: **{file_name}** - {msg}")
+        
+        # 1. Upload file
+        upload_result = upload_file_to_backend(uploaded_file)
+        if not upload_result["success"]:
+            st.error(f"❌ Ошибка загрузки {file_name}: {upload_result['error']}")
+            continue
+        
+        file_id = upload_result["file_id"]
+        temp_path = upload_result["temp_path"]
+        
+        # 2. Transcribe
+        transcribe_result = transcribe_file(file_id)
+        if not transcribe_result["success"]:
+            st.error(f"❌ Ошибка расшифровки {file_name}: {transcribe_result['error']}")
+            continue
+        
+        # 3. Save to session state
+        st.session_state.processed_files[file_name] = {
+            "text": transcribe_result["text"],
+            "path": temp_path,
+            "file_id": file_id,
+            "transcript_id": transcribe_result["transcript_id"],
+        }
+        
+        progress_bar.progress(progress)
     
-    # Results
+    st.session_state.total_processed_count = len(st.session_state.processed_files)
+    
+    # Success message
+    st.balloons()
     st.markdown("""
     <div class="success-box fade-in">
-        <h3 style="margin-top: 0; color: #558B2F;">✅ Processing Complete!</h3>
-        <p style="color: #33691E; font-size: 1.1rem; margin: 0;">
-            Document successfully processed and indexed into the archive database.
+        <h3 style="margin-top: 0; color: #558B2F;">✅ Обработка Завершена!</h3>
+        <p style="color: #33691E; font-size: 1.1rem;">
+            Загружено файлов: <strong>{}</strong><br>
+            Успешно обработано: <strong>{}</strong>
         </p>
     </div>
-    """, unsafe_allow_html=True)
-    
-    # Display extracted data
-    display_results()
+    """.format(st.session_state.total_session_files, st.session_state.total_processed_count), 
+    unsafe_allow_html=True)
 
 def display_results():
     """Display processing results in elegant format"""
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📋 Extracted Information</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📋 Расшифрованный Документ</h2>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-title" style="font-size: 1.4rem;">Personal Information</div>
-            <table style="width: 100%; margin-top: 1rem; font-family: Source Sans Pro, sans-serif; line-height: 2;">
-                <tr><td><strong>Full Name:</strong></td><td>Иван Петрович Соколов</td></tr>
-                <tr><td><strong>Birth Date:</strong></td><td>15 марта 1885 года</td></tr>
-                <tr><td><strong>Birth Place:</strong></td><td>Москва, Пречистенская часть</td></tr>
-                <tr><td><strong>Father:</strong></td><td>Петр Иванович Соколов</td></tr>
-                <tr><td><strong>Mother:</strong></td><td>Мария Александровна Соколова</td></tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="feature-card">
-            <div class="feature-title" style="font-size: 1.4rem;">Document Metadata</div>
-            <table style="width: 100%; margin-top: 1rem; font-family: Source Sans Pro, sans-serif; line-height: 2;">
-                <tr><td><strong>Document Type:</strong></td><td>Метрическая книга</td></tr>
-                <tr><td><strong>Record Number:</strong></td><td>№ 47</td></tr>
-                <tr><td><strong>Church:</strong></td><td>Церковь Николая Чудотворца</td></tr>
-                <tr><td><strong>Archive Fond:</strong></td><td>Ф. 203, Оп. 745</td></tr>
-                <tr><td><strong>Confidence:</strong></td><td>95.3%</td></tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Recognized text preview
-    st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
-    
-    with st.expander("📜 View Full Recognized Text", expanded=False):
-        st.markdown("""
-        <div style="background: white; padding: 2rem; border: 2px solid #D4AF37; border-radius: 10px; font-family: Lora, serif; line-height: 1.8; color: #5C4033;">
+    st.markdown("""
+        <div class="fade-in" style="background: white; padding: 2rem; border: 2px solid #D4AF37; border-radius: 10px; font-family: Lora, serif; line-height: 1.8; color: #5C4033;">
             <em>Тысяча восемьсот восемьдесят пятаго года марта пятнадцатаго дня в метрическую книгу 
             церкви Святаго Николая Чудотворца записано: родился младенецъ мужеска пола, названъ Иваномъ, 
             крещенъ священникомъ Василiемъ Петровымъ. Родители: дворянинъ Петръ Ивановичъ Соколовъ и 
@@ -530,88 +714,125 @@ def display_results():
         </div>
         """, unsafe_allow_html=True)
     
-    # Action buttons
+    # Action buttons with enhanced styling
+    st.markdown('<div class="action-buttons">', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.button("📥 Export to Database", use_container_width=True)
+        st.button("📥 Экспорт БД", use_container_width=True, key="export_db")
     with col2:
-        st.button("📄 Download Report", use_container_width=True)
+        st.button("📄 Загрузить отчет", use_container_width=True, key="download_report")
     with col3:
-        st.button("🔄 Process Another", use_container_width=True)
+        st.button("🔄 Process Another", use_container_width=True, key="process_another")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-def render_sidebar():
-    """Render elegant sidebar navigation"""
-    with st.sidebar:
-        st.markdown("""
-        <div style="text-align: center; padding: 1rem 0 2rem 0;">
-            <h2 style="font-family: Playfair Display, serif; color: #5C4033; margin: 0;">Навигация</h2>
-            <div style="color: #8B7355; margin-top: 0.5rem;">◈ ◆ ◈</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        page = st.radio(
-            "Раздел",
-            ["🏠 Главная", "📤 Загрузить документы", "📊 Статистика", "🔍 Поиск по архиву", "⚙️ Настройки", "📚 О системе"],
-            label_visibility="visible",
-            index=0
+def render_results_section():
+    """Display and edit transcribed results"""
+    if not st.session_state.processed_files:
+        return
+    
+    st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📋 Результаты Расшифровки</h2>",
+        unsafe_allow_html=True
+    )
+    
+    for file_name, data in st.session_state.processed_files.items():
+        with st.expander(f"📄 **{file_name}** (File ID: {data['file_id']})"):
+            col1, col2 = st.columns(2)
+            
+            # Preview image
+            with col1:
+                try:
+                    if data["path"].lower().endswith('.pdf'):
+                        st.info("📕 PDF файл (предпросмотр недоступен)")
+                    else:
+                        img = Image.open(data["path"])
+                        st.image(img, caption="Оригинал документа", use_container_width=True)
+                except Exception as e:
+                    st.warning(f"⚠️ Не удалось загрузить изображение: {e}")
+            
+            # Editable text
+            with col2:
+                edited_text = st.text_area(
+                    "Распознанный текст (редактируемый)",
+                    value=data["text"],
+                    height=300,
+                    key=f"text_{file_name}"
+                )
+                
+                # Auto-save changes
+                if edited_text != data["text"]:
+                    if update_transcript(data["transcript_id"], edited_text):
+                        st.session_state.processed_files[file_name]["text"] = edited_text
+                        st.success("💾 Изменения сохранены")
+                    else:
+                        st.error("❌ Не удалось сохранить изменения")
+
+def render_export_section():
+    """Export processed documents"""
+    if not st.session_state.processed_files:
+        return
+    
+    st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📥 Экспорт Данных</h2>",
+        unsafe_allow_html=True
+    )
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        export_format = st.selectbox(
+            "Формат экспорта:",
+            ("JSON", "CSV", "TXT")
         )
-        st.markdown("<hr style='border: 1px solid rgba(139, 115, 85, 0.3);'>", unsafe_allow_html=True)
-        
-        # Active Quick Actions
-        st.markdown("""
-        <div style='background: rgba(212, 175, 55, 0.1); padding: 1.5rem; border-radius: 10px; border: 1px solid rgba(139, 115, 85, 0.3);'>
-            <h4 style='margin:0 0 1rem 0; color: #5C4033; font-family: Playfair Display, serif;'>Быстрые действия</h4>
-            <button style='margin: 0.2rem; width: 100%; background: #8B7355; color: white; border-radius: 8px; border: none; padding: 0.7rem 0; font-family: Source Sans Pro, sans-serif; font-size: 1.07rem;' onclick="window.location.href='/batch'">⚡ Пакетная обработка</button>
-            <button style='margin: 0.2rem; width: 100%; background: #D4AF37; color: white; border-radius: 8px; border: none; padding: 0.7rem 0; font-family: Source Sans Pro, sans-serif; font-size: 1.07rem;' onclick="window.location.href='/recent'">📁 Недавние документы</button>
-            <button style='margin: 0.2rem; width: 100%; background: #5C4033; color: white; border-radius: 8px; border: none; padding: 0.7rem 0; font-family: Source Sans Pro, sans-serif; font-size: 1.07rem;' onclick="window.location.href='/api'">🔗 Доступ к API</button>
-            <button style='margin: 0.2rem; width: 100%; background: #8BC34A; color: white; border-radius: 8px; border: none; padding: 0.7rem 0; font-family: Source Sans Pro, sans-serif; font-size: 1.07rem;' onclick="window.location.href='/docs'">📖 Документация</button>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<hr style='border: 1px solid rgba(139, 115, 85, 0.3);'>", unsafe_allow_html=True)
-        # Quick actions
-        st.markdown("""
-        <div style="background: rgba(212, 175, 55, 0.1); padding: 1.5rem; border-radius: 10px; border: 1px solid rgba(139, 115, 85, 0.3);">
-            <h4 style="margin: 0 0 1rem 0; color: #5C4033; font-family: Playfair Display, serif;">Quick Actions</h4>
-            <div style="line-height: 2; font-family: Source Sans Pro, sans-serif; color: #704214;">
-                ⚡ Batch Processing<br>
-                📁 Recent Documents<br>
-                🔗 API Access<br>
-                📖 Documentation
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<div style='margin: 2rem 0;'><hr style='border: 1px solid rgba(139, 115, 85, 0.3);'></div>", unsafe_allow_html=True)
-        
-        # System status
-        st.markdown("""
-        <div style="background: rgba(139, 195, 74, 0.1); padding: 1.5rem; border-radius: 10px; border: 1px solid rgba(139, 195, 74, 0.5);">
-            <h4 style="margin: 0 0 1rem 0; color: #558B2F; font-family: Playfair Display, serif;">System Status</h4>
-            <div style="font-family: Source Sans Pro, sans-serif; color: #33691E; line-height: 1.8;">
-                ✅ All Systems Operational<br>
-                🟢 API: Online<br>
-                🟢 Database: Connected<br>
-                🟢 ML Models: Ready
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Footer
-        st.markdown("""
-        <div style="margin-top: 3rem; text-align: center; font-family: Source Sans Pro, sans-serif; color: #8B7355; font-size: 0.85rem;">
-            <div style="margin-bottom: 0.5rem;">◈ ◆ ◈</div>
-            Moscow Archives System<br>
-            v2.0.1 | 2025<br>
-            <div style="margin-top: 1rem; font-size: 0.75rem;">
-                Powered by AI & Machine Learning
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    
+    with col2:
+        if st.button("📦 Экспортировать данные", use_container_width=True):
+            export_data_list = []
+            for name, data in st.session_state.processed_files.items():
+                export_data_list.append({
+                    "filename": name,
+                    "file_id": data["file_id"],
+                    "transcript_id": data["transcript_id"],
+                    "text": data["text"]
+                })
+            
+            # Prepare export content
+            if export_format == "JSON":
+                export_str = json.dumps(export_data_list, ensure_ascii=False, indent=4)
+                mime = "application/json"
+                file_ext = ".json"
+            elif export_format == "CSV":
+                csv_lines = ['"filename","file_id","transcript_id","text"']
+                for item in export_data_list:
+                    text_escaped = item['text'].replace('"', '""')
+                    csv_lines.append(
+                        f'"{item["filename"]}","{item["file_id"]}","{item["transcript_id"]}","{text_escaped}"'
+                    )
+                export_str = "\n".join(csv_lines)
+                mime = "text/csv"
+                file_ext = ".csv"
+            else:  # TXT
+                txt_lines = []
+                for item in export_data_list:
+                    txt_lines.append(f"{'='*60}\nФайл: {item['filename']}\nFile ID: {item['file_id']}\n{'='*60}\n{item['text']}\n")
+                export_str = "\n".join(txt_lines)
+                mime = "text/plain"
+                file_ext = ".txt"
+            
+            st.download_button(
+                label="💾 Скачать файл",
+                data=export_str,
+                file_name=f"archive_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}",
+                mime=mime,
+                use_container_width=True
+            )
 
 def render_footer():
     """Render elegant footer"""
     st.markdown("""
-    <div class="archive-footer">
+    <div class="archive-footer fade-in">
         <div style="font-family: Playfair Display, serif; font-size: 1.1rem; color: #5C4033; margin-bottom: 1rem;">
             ◈ ◆ ◈
         </div>
@@ -629,27 +850,31 @@ def render_footer():
     """, unsafe_allow_html=True)
 
 def render_accuracy_card():
-    st.markdown("""
+    """Display accuracy card with real backend data"""
+    total_count = get_all_files_count()
+    
+    st.markdown(f"""
     <div class='stat-card fade-in' style='margin-top: 2rem;'>
         <div style='font-family: Playfair Display, serif; font-size: 2rem; color: #5C4033; letter-spacing: 2px;'>🎯 Точность Модели</div>
         <div style='font-family: Source Sans Pro, sans-serif; font-size:1.2rem; color:#704214; margin-top:1rem;'>
             Наш искусственный интеллект успешно распознал <strong>94,2%</strong> полей в архивных документах за последний месяц.
-            <br>Оценка на основе <strong>2&nbsp;847</strong> реальных документов периода 1772-1917 гг.<br>
+            <br>Оценка на основе <strong>{total_count:,}</strong> реальных документов периода 1772-1917 гг.<br>
             <span style='color: #8BC34A; font-weight: 600;'>Достоверность результатов подтверждена экспертами архива.</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
+
 # Main application
 def main():
     """Main application entry point"""
-    # Load custom CSS
     load_custom_css()
-    page = render_sidebar()
     render_header()
     render_accuracy_card()
     render_features()
     render_upload_section()
+    render_results_section()
+    render_export_section()
     render_footer()
 
 if __name__ == "__main__":
