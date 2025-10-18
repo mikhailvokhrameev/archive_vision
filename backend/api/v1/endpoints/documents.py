@@ -80,7 +80,7 @@ def process_document(
     return {"message": "Обработка документа запущена в фоновом режиме."}
 
 @router.get("/process-status/{file_id}")
-def get_process_status(file_id: uuid.UUID):
+def get_process_status(file_id: uuid.UUID, db: Session = Depends(get_db)):
     """
     6) Эндпоинт для отслеживания прогресса обработки (для progress bar).
     """

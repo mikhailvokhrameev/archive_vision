@@ -1,8 +1,3 @@
-"""
-Moscow Archives Document Recognition System
-A premium web interface for automated document processing and indexing
-"""
-
 import streamlit as st
 import base64
 from pathlib import Path
