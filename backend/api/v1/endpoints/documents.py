@@ -59,7 +59,7 @@ def process_and_save_results(db: Session, file_id: uuid.UUID, file_path: str):
     Функция для фоновой задачи: запускает OCR и сохраняет результат.
     4, 5, 10) Нормализация, извлечение данных и сохранение в БД.
     """
-    transcript_path, wer = ocr_service.process_document_mock(file_id, file_path)
+    transcript_path, wer = ocr_service.process_document(file_id, file_path)
     crud_transcripts.create_file_transcript(db, file_id, transcript_path, wer)
 
 @router.post("/{file_id}/process", status_code=202)
