@@ -16,10 +16,16 @@ from scipy import ndimage
 from scipy.signal import find_peaks
 from tqdm import tqdm
 
+from dataclasses import dataclass, field
+import re
+import docx
+
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 from schemas.document import RecognitionResult, TranscriptData
 from core.config import settings
+
+_token_re = re.compile(r"[А-Яа-яA-Za-zЁёІіѢѣѲѳѴѵ]+", flags=re.UNICODE)
 
 # --- Опциональные зависимости ---
 try:
@@ -68,6 +74,8 @@ LAMBDA_LM = float(os.getenv("LAMBDA_LM", "0.15"))
 LAMBDA_OOV = float(os.getenv("LAMBDA_OOV", "0.5"))
 LENGTH_NORM = float(os.getenv("LENGTH_NORM", "0.0"))
 KENLM_MODEL_PATH = os.getenv("KENLM_ARPA", None)
+ALPHAVIT_DOCX_PATH = "/backend/Alphabet.docx"
+FUND_DOCX_PATH = "/backend/F203.docx"
 
 print(f"Device: {DEVICE}")
 
@@ -271,7 +279,21 @@ def process_document(file_id: uuid.UUID, file_path: str):
         all_recognized_words = []
         page_texts = []
         total_lines = 0
-        
+
+        progress_status[file_id] = {"status": "loading", "progress": 10}
+        fpath = Path(file_path)
+
+        # NEW: пути к DOCX из окружения
+        alphavit_docx = os.getenv("ALPHAVIT_DOCX_PATH", None)  # NEW
+        fund_docx = os.getenv("FUND_DOCX_PATH", None)          # NEW
+        alpha_rules = load_alphabet_from_docx(alphavit_docx)   # NEW
+        glossary = load_fund_glossary(fund_docx, alpha_rules)  # NEW
+
+        if fpath.suffix.lower() == '.pdf':
+            pages = convert_from_path(str(fpath), dpi=300)
+        else:
+            pages = [Image.open(fpath)]
+                
         # --- 2. Обработка каждой страницы ---
         for page_idx, page_img in enumerate(pages):
             progress_status[file_id] = {"status": "processing_page", "progress": 20 + 60 * (page_idx / len(pages))}
@@ -296,14 +318,14 @@ def process_document(file_id: uuid.UUID, file_path: str):
                     line_img = dewarped_img.crop((max(0, x0 - 5), max(0, y0 - pad), min(dewarped_img.width, x1 + 5), min(dewarped_img.height, y1 + pad)))
                     
                     line_text, confidence = predict_text_from_line_image(line_img)
-                    if not line_text.strip(): continue
-                    
-                    page_texts.append(line_text)
-                    # Создаем TranscriptData для каждого слова, если нужно
-                    for word in line_text.split():
+                    if not line_text.strip(): 
+                        continue
+                    norm_text = normalize_and_correct_line(line_text, glossary, alpha_rules)
+                    page_texts.append(norm_text)
+
+                    for word in norm_text.split():
                         all_recognized_words.append(
-                            TranscriptData(text=word, coordinates=[x0, y0, x1, y1], confidence=round(confidence, 3))
-                        )
+                            TranscriptData(text=word, coordinates=[x0, y0, x1, y1], confidence=round(confidence, 3)))
 
         # --- 3. Формирование и сохранение результата ---
         progress_status[file_id] = {"status": "saving", "progress": 95}
@@ -345,3 +367,129 @@ def process_document_mock(file_id: uuid.UUID, file_path: str):
 
 def get_progress(file_id: uuid.UUID):
     return progress_status.get(file_id, {"status": "not_found", "progress": 0})
+
+
+@dataclass
+class AlphabetRules:
+    char_map: dict[str, str] = field(default_factory=dict)
+    remove_final_er: bool = False
+    replace_ago_ego: bool = False
+    extra_word_rules: list[tuple[re.Pattern, str]] = field(default_factory=list)
+
+# финальный ъ
+_RE_FINAL_ER = re.compile(r"(\b\w*?[бвгджзклмнпрстфхцчшщ])ъ\b", flags=re.IGNORECASE | re.UNICODE)
+
+def _parse_pairs_from_text(txt: str) -> dict[str, str]:
+    pairs = {}
+    # Поддержка форматов: "ѣ -> е", "Ѣ→Е", "і = и", "ѳ=ф", "ѵ->и"
+    for a, b in re.findall(r"([А-Яа-яЁёІіѢѣѲѳѴѵ])\s*[-=→>]+\s*([А-Яа-яЁёІіѢѣѲѳѴѵ])", txt):
+        pairs[a] = b
+        # автодобавление верхнего регистра
+        if a.upper() != a and b.upper() != b:
+            pairs[a.upper()] = b.upper()
+    return pairs
+
+def load_alphabet_from_docx(alphavit_docx_path: str | None) -> AlphabetRules:
+    rules = AlphabetRules()
+    if not alphavit_docx_path or not os.path.exists(alphavit_docx_path) or not docx:
+        return rules
+    d = docx.Document(alphavit_docx_path)
+    # 1) пары из таблиц
+    for tbl in d.tables:
+        for row in tbl.rows:
+            if len(row.cells) >= 2:
+                a = row.cells[0].text.strip()
+                b = row.cells[1].text.strip()
+                if a and b:
+                    rules.char_map[a[:1]] = b[:1]
+                    if a[:1].upper() != a[:1] and b[:1].upper() != b[:1]:
+                        rules.char_map[a[:1].upper()] = b[:1].upper()
+    # 2) пары из текста и эвристики по правилам
+    full = "\n".join(p.text for p in d.paragraphs)
+    rules.char_map.update(_parse_pairs_from_text(full))
+    low = full.lower()
+    # включить удаление финального ъ, если упоминается
+    if "твердый знак" in low or "ъ" in low:
+        rules.remove_final_er = True
+    # включить -аго/-яго → -ого/-его, если упомянуто
+    if "-аго" in low or "-яго" in low:
+        rules.replace_ago_ego = True
+    if re.search(r"окончани[ея].*?-аго.*?-ого", low):
+        rules.extra_word_rules.append((re.compile(r"(\w+?)аго\b"), r"\1ого"))
+    if re.search(r"окончани[ея].*?-яго.*?-его", low):
+        rules.extra_word_rules.append((re.compile(r"(\w+?)яго\b"), r"\1его"))
+    return rules
+
+def normalize_pre_reform(s: str, rules: AlphabetRules) -> str:
+    t = "".join(rules.char_map.get(ch, ch) for ch in s)
+    if rules.remove_final_er:
+        t = _RE_FINAL_ER.sub(lambda m: m.group(1), t)
+    if rules.replace_ago_ego:
+        t = re.sub(r"(\w+?)аго\b", r"\1ого", t)
+        t = re.sub(r"(\w+?)яго\b", r"\1его", t)
+    for pat, repl in rules.extra_word_rules:
+        t = pat.sub(repl, t)
+    return t
+
+def _build_glossary_from_text(txt: str, rules: AlphabetRules) -> set[str]:
+    tokens = re.findall(r"[А-Яа-яЁёІіѢѣѲѳѴѵ-]+", txt)
+    norm = { normalize_pre_reform(w, rules).lower() for w in tokens if len(w) >= 3 }
+    return {w for w in norm if len(w) >= 3}
+
+def load_fund_glossary(docx_path: str | None, rules: AlphabetRules) -> set[str]:
+    if not docx_path or not os.path.exists(docx_path) or not docx:
+        return set()
+    d = docx.Document(docx_path)
+    txt = "\n".join(p.text for p in d.paragraphs)
+    return _build_glossary_from_text(txt, rules)
+
+def _weighted_edit_distance(a: str, b: str, rules: AlphabetRules) -> int:
+    # Сниженные штрафы для пар из твоего «Алфавита»
+    pairs = set()
+    for k, v in rules.char_map.items():
+        pairs.add((v.lower(), v.lower()))
+        pairs.add((k.lower(), v.lower()))
+        pairs.add((v.lower(), k.lower()))
+    pairs.update({('е','ё'),('ё','е')})
+    def sub_cost(ca, cb):
+        ca, cb = ca.lower(), cb.lower()
+        return 0 if (ca == cb) or ((ca,cb) in pairs) else 1
+    la, lb = len(a), len(b)
+    dp = [[0]*(lb+1) for _ in range(la+1)]
+    for i in range(la+1): dp[i][0] = i
+    for j in range(lb+1): dp[0][j] = j
+    for i in range(1, la+1):
+        for j in range(1, lb+1):
+            dp[i][j] = min(
+                dp[i-1][j] + (0 if (a[i-1]=='ъ' and rules.remove_final_er) else 1),
+                dp[i][j-1] + 1,
+                dp[i-1][j-1] + sub_cost(a[i-1], b[j-1])
+            )
+    return dp[la][lb]
+
+def _autocorrect_token(tok: str, glossary: set[str], rules: AlphabetRules, max_dist: int = 2) -> str:
+    if not tok:
+        return tok
+    ntok = normalize_pre_reform(tok, rules)
+    low = ntok.lower()
+    if low in glossary:
+        return ntok
+    best, bestd = ntok, max_dist+1
+    for w in glossary:
+        d = _weighted_edit_distance(low, w, rules)
+        if d < bestd:
+            best, bestd = w, d
+            if d == 0: break
+    if bestd <= max_dist:
+        return best.capitalize() if tok[:1].isupper() else best
+    return ntok
+
+def normalize_and_correct_line(text: str, glossary: set[str], rules: AlphabetRules) -> str:
+    parts = re.findall(r"[А-Яа-яЁёІіѢѣѲѳѴѵ]+|[^А-Яа-яЁёІіѢѣѲѳѴѵ]+", text)
+    out = []
+    for p in parts:
+        if re.match(r"[А-Яа-яЁёІіѢѣѲѳѴѵ]+", p):
+            out.append(_autocorrect_token(p, glossary, rules))
+        else:
+            out.append(p)
+    return "".join(out)
