@@ -55,12 +55,13 @@ def process_document_mock(file_id: uuid.UUID, file_path: str):
 
     # Сохраняем результат в JSON файл
     transcript_filename = f"{file_id}_transcript.json"
-    transcript_path = os.path.join(settings.UPLOAD_DIRECTORY, transcript_filename)
+    transcript_path = os.path.join(settings.TRANSCRIPTS_DIRECTORY, transcript_filename)
     
     with open(transcript_path, "w", encoding="utf-8") as f:
         f.write(result.model_dump_json(indent=4))
         
     print(f"Обработка файла {file_path} завершена. Результат сохранен в {transcript_path}")
-    del progress_status[file_id] # Очищаем статус после завершения
+    if file_id in progress_status:
+        del progress_status[file_id] # Очищаем статус после завершения
     
     return transcript_path, result.wer

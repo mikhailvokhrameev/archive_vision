@@ -1,6 +1,6 @@
 # /api/v1/api.py
 from fastapi import APIRouter
-from .endpoints import documents, reports
+from api.v1.endpoints import documents, reports
 
 api_router = APIRouter()
 api_router.include_router(documents.router, prefix="/documents", tags=["Documents"])

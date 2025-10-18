@@ -14,6 +14,7 @@ class FileCreate(FileBase):
 class FileInDB(FileBase):
     file_id: uuid.UUID
     load_date: datetime
+    file_path: str
 
     class Config:
         from_attributes = True
@@ -37,6 +38,16 @@ class CorrectionData(BaseModel):
 class CorrectionInDB(CorrectionData):
     correction_id: uuid.UUID
     file_id: uuid.UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TranscriptInDB(BaseModel):
+    transcript_id: uuid.UUID
+    file_id: uuid.UUID
+    transcript_path: str
+    wer: Optional[dict] = None
     created_at: datetime
 
     class Config:
