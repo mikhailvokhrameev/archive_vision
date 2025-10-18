@@ -137,6 +137,21 @@ def get_transcript_file(file_id: uuid.UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Файл с транскрипцией не найден")
     return FileResponse(db_transcript.transcript_path)
 
+@router.get("/export/json/{file_id}", response_class=FileResponse)
+def export_json_file(file_id: uuid.UUID, db: Session = Depends(get_db)):
+    """
+    Экспорт JSON-файла с результатом распознавания.
+    """
+    db_transcript = crud_transcripts.get_transcript_by_file_id(db, file_id)
+    if not db_transcript:
+        raise HTTPException(status_code=404, detail="Транскрипт для данного файла не найден.")
+
+    file_path = db_transcript.transcript_path
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Файл транскрипта не найден на сервере.")
+
+    return FileResponse(path=file_path, filename=f"{file_id}_transcript.json", media_type='application/json')
+
 @router.get("/", response_model=List[FileInDB])
 def get_all_files(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
     """
