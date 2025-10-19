@@ -248,15 +248,11 @@ CSS_VARIABLES = {
     'warm-cream': '#FFF8E7',
     'border-vintage': 'rgba(139, 115, 85, 0.3)'
 }
-
-# Reusable CSS components
 def load_custom_css():
     css = """
     <style>
-    /* Import elegant fonts */
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lora:wght@400;500;600&family=Source+Sans+Pro:wght@300;400;600&display=swap');
     
-    /* Main color palette - Archival beige/brown tones */
     :root {
         --primary-beige: #F5EFE6;
         --secondary-brown: #8B7355;
@@ -268,11 +264,23 @@ def load_custom_css():
         --border-vintage: rgba(139, 115, 85, 0.3);
     }
     
-    /* Global styling */
     .stApp {
         background: linear-gradient(135deg, #FAF6F0 0%, #F5EFE6 100%);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
     }
-    /* FULLSCREEN HERO */
+    
+    h1, h2, h3 {
+        font-family: 'Playfair Display', serif;
+        color: var(--dark-brown);
+    }
+    
+    p, li, span {
+        font-family: 'Source Sans Pro', sans-serif;
+        color: var(--deep-sepia);
+    }
+
     .hero-fullscreen {
         min-height: 100vh;
         display: flex;
@@ -317,7 +325,6 @@ def load_custom_css():
         margin: 2rem 0;
     }
     
-    /* Custom header with ornamental design */
     .archive-header {
         text-align: center;
         padding: 3rem 2rem 2rem 2rem;
@@ -354,7 +361,6 @@ def load_custom_css():
         opacity: 0.8;
     }
     
-    /* Decorative divider */
     .ornamental-divider {
         text-align: center;
         margin: 2rem 0;
@@ -362,7 +368,6 @@ def load_custom_css():
         font-size: 2rem;
     }
     
-    /* Feature cards */
     .feature-card {
         background: var(--warm-cream);
         border: 2px solid var(--border-vintage);
@@ -373,7 +378,7 @@ def load_custom_css():
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
-        min-height: 320px;  /* ✅ ДОБАВЛЕНО: фиксированная минимальная высота */
+        min-height: 320px;
         display: flex;
         flex-direction: column;
     }
@@ -413,29 +418,85 @@ def load_custom_css():
         font-size: 1.05rem;
         color: var(--deep-sepia);
         line-height: 1.7;
-        flex-grow: 1;  /* ✅ ДОБАВЛЕНО: текст занимает всё свободное пространство */
+        flex-grow: 1;
     }
-    
-    /* Upload section */
-    .upload-zone {
-        background: var(--light-parchment);
-        border: 3px dashed var(--secondary-brown);
-        border-radius: 20px;
-        padding: 3rem;
-        text-align: center;
-        margin: 2rem 0;
-        transition: all 0.3s ease;
-    }
-    
-    .upload-zone:hover {
-        border-color: var(--accent-gold);
-        background: var(--warm-cream);
-        box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
-    }
-     /* Центрируем и ограничиваем ширину самого uploader */
-    [data-testid="stFileUploader"] { max-width: 820px; width: 100%; margin: 0 auto; }
 
-    /* Делаем dropzone пунктирным прямоугольником (вся область — активная зона dnd) */
+    .stats-wrapper {
+        margin: 32px 0;
+    }
+
+    .stats-hero {
+        position: relative;
+        padding: clamp(16px, 4vw, 48px);
+        border-radius: 28px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        background: linear-gradient(135deg, var(--warm-cream) 0%, var(--light-parchment) 100%);
+        color: var(--deep-sepia);
+        border: 2px solid var(--accent-gold);
+        box-shadow: 0 10px 28px rgba(92, 64, 51, 0.15);
+    }
+
+    .stats-number {
+        font-family: 'Playfair Display', serif;
+        font-weight: 700;
+        font-size: clamp(32px, 7vw, 90px);
+        line-height: 1;
+        letter-spacing: 0.01em;
+        font-variant-numeric: tabular-nums;
+        color: var(--dark-brown);
+    }
+
+    .stats-caption {
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: clamp(14px, 2vw, 22px);
+        margin-top: clamp(6px, 1vw, 12px);
+        color: var(--secondary-brown);
+    }
+
+    .stats-pill {
+        position: absolute;
+        top: clamp(10px, 2vw, 18px);
+        right: clamp(10px, 2vw, 18px);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-family: 'Source Sans Pro', sans-serif;
+        font-size: clamp(12px, 1.6vw, 14px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.20);
+        background: var(--warm-cream);
+        color: var(--dark-brown);
+        border: 1px solid var(--border-vintage);
+    }
+    
+    [data-testid="stFileUploader"] {
+        max-width: 820px;
+        width: 100%;
+        margin: 0 auto;
+        background: var(--warm-cream);
+        border: 2px solid var(--border-vintage);
+        border-radius: 12px;
+        padding: 2rem;
+    }
+
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] div {
+        color: #5C4033 !important;
+    }
+
+    [data-testid="stFileUploaderFileName"] {
+        color: #5C4033 !important;
+        font-weight: 500 !important;
+    }
+
+    [data-testid="stFileUploaderFileSize"] {
+        color: #8B7355 !important;
+    }
+
     [data-testid="stFileUploaderDropzone"] {
         border: 3px dashed #8B7355 !important;
         background: var(--light-parchment) !important;
@@ -444,377 +505,47 @@ def load_custom_css():
         display: flex; justify-content: center; align-items: center;
         padding: 24px;
     }
-    /* Внутреннее выравнивание контента dropzone */
+    
     [data-testid="stFileUploaderDropzone"] > div {
         display: flex; flex-direction: column; align-items: center; gap: 12px;
     }
 
-    /* Кастомный текст/иконка подсказки */
     [data-testid="stFileUploaderDropzoneInstructions"] span { display: none !important; }
+    
     [data-testid="stFileUploaderDropzoneInstructions"] > div::before {
-        content: "☁️"; font-size: 42px; color: #8B7355; display: block; text-align: center; margin-bottom: 6px;
+        content: "☁️";
+        font-size: 42px;
+        color: #8B7355;
+        display: block;
+        text-align: center;
+        margin-bottom: 6px;
     }
+    
     [data-testid="stFileUploaderDropzoneInstructions"] > div::after {
         content: "Перетащите файл сюда или нажмите для выбора";
-        color: #5C4033; font-size: 16px; opacity: 0.9; display: block; text-align: center;
+        color: #5C4033;
+        font-size: 16px;
+        opacity: 0.9;
+        display: block;
+        text-align: center;
     }
 
-    /* Кнопка внутри прямоугольника */
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"],
-    [data-testid="stFileUploaderDropzone"] [data-testid="stbaseButton-secondary"] {
-        background-color: #8B7355 !important; color: #fff !important;
-        border: none !important; border-radius: 10px !important; padding: 10px 18px !important;
+    [data-testid="stFileUploaderDropzone"] [data-testid*="stBaseButton-secondary"] {
+        background-color: #8B7355 !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 10px 18px !important;
     }
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]:hover,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stbaseButton-secondary"]:hover {
+    
+    [data-testid="stFileUploaderDropzone"] [data-testid*="stBaseButton-secondary"]:hover {
         background-color: #7A654B !important;
     }
-    /* Custom buttons - светлые кнопки */
-    .stButton>button {
-        background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%);
-        color: var(--warm-cream) !important;
-        border: none;
-        border-radius: 12px;
-        padding: 0.8rem 2.5rem;
-        font-family: 'Source Sans Pro', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 600;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(92, 64, 51, 0.3);
-    }
-
-    /* Убедитесь, что все текстовые элементы внутри кнопки светлые */
-    .stButton>button * {
-        color: var(--warm-cream) !important;
-        -webkit-text-fill-color: var(--warm-cream) !important;
-    }
     
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, var(--light-parchment) 0%, var(--primary-beige) 100%);
-        border-right: 3px solid var(--border-vintage);
-    }
-    
-    [data-testid="stSidebar"] .sidebar-content {
-        padding: 2rem 1rem;
-    }
-    
-    /* Info boxes */
-    .info-box {
-        background: rgba(212, 175, 55, 0.1);
-        border-left: 5px solid var(--accent-gold);
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin: 1.5rem 0;
-        font-family: 'Source Sans Pro', sans-serif;
-        color: #5C4033 !important;  /* ✅ Темный текст */
-    }
-
-    .info-box * {
-        color: #5C4033 !important;  /* ✅ Все элементы внутри тёмные */
-    }
-    
-    .success-box {
-        background: rgba(139, 195, 74, 0.1);
-        border-left: 5px solid #8BC34A;
-        padding: 1.5rem;
-        border-radius: 8px;
-        margin: 1.5rem 0;
-    }
-    
-    /* Document preview с темным текстом */
-    .document-preview {
-        border: 2px solid var(--border-vintage);
-        border-radius: 10px;
-        padding: 1rem;
-        background: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        margin: 1rem 0;
-        color: #5C4033 !important;  /* ✅ Темный текст */
-    }
-    
-    /* Progress indicators */
-    .stProgress > div > div {
-        background: linear-gradient(90deg, var(--accent-gold), var(--secondary-brown));
-    }
-    
-    /* Document preview */
-    .document-preview {
-        border: 2px solid var(--border-vintage);
-        border-radius: 10px;
-        padding: 1rem;
-        background: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        margin: 1rem 0;
-    }
-    
-    /* Stats cards */
-    .stat-card {
-        background: linear-gradient(135deg, var(--warm-cream) 0%, var(--light-parchment) 100%);
-        border: 2px solid var(--accent-gold);
-        border-radius: 12px;
-        padding: 1.5rem;
-        text-align: center;
-        margin: 1rem 0;
-        box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
-    }
-    
-    .stat-number {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--deep-sepia);
-        display: block;
-    }
-    
-    .stat-label {
-        font-family: 'Source Sans Pro', sans-serif;
-        font-size: 1rem;
-        color: var(--secondary-brown);
-        margin-top: 0.5rem;
-    }
-    
-    /* Text styling */
-    h1, h2, h3 {
-        font-family: 'Playfair Display', serif;
-        color: var(--dark-brown);
-    }
-    
-    p, li, span {
-        font-family: 'Source Sans Pro', sans-serif;
-        color: var(--deep-sepia);
-    }
-    
-    /* Expander styling */
-        /* Expander styling - светлый фон */
-    .streamlit-expanderHeader {
-        background: var(--light-parchment) !important;  /* Светлый пергаментный цвет */
-        border: 1px solid var(--border-vintage) !important;
-        border-radius: 8px !important;
-        font-family: 'Lora', serif !important;
-        color: var(--dark-brown) !important;
-    }
-
-    /* Содержимое expander - тоже светлое */
-    .streamlit-expanderContent {
-        background: var(--warm-cream) !important;  /* Тёплый кремовый фон */
-        border: 1px solid var(--border-vintage) !important;
-        border-radius: 0 0 8px 8px !important;
-        padding: 1.5rem !important;
-    }
-
-    /* Текст внутри expander */
-    .streamlit-expanderContent * {
-        color: var(--dark-brown) !important;
-    }
-
-    
-    /* File uploader styling */
-    [data-testid="stFileUploader"] {
-        background: var(--warm-cream);
-        border: 2px solid var(--border-vintage);
-        border-radius: 12px;
-        padding: 2rem;
-    }
-    
-    /* Selectbox and input styling */
-    .stSelectbox, .stTextInput {
-        font-family: 'Source Sans Pro', sans-serif;
-    }
-    
-    /* Table styling */
-    .dataframe {
-        border: 2px solid var(--border-vintage);
-        border-radius: 8px;
-        font-family: 'Source Sans Pro', sans-serif;
-    }
-    
-    /* Footer */
-    .archive-footer {
-        text-align: center;
-        padding: 2rem;
-        margin-top: 3rem;
-        border-top: 2px solid var(--border-vintage);
-        font-family: 'Source Sans Pro', sans-serif;
-        color: var(--secondary-brown);
-        font-size: 0.9rem;
-    }
-    
-    /* Animation for document processing */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .fade-in {
-        animation: fadeIn 0.6s ease-out;
-    }
-    
-    /* Tooltip styling */
-    .tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: help;
-        color: var(--accent-gold);
-    }
-    [data-testid="stFileUploader"] {
-    background: var(--warm-cream);
-    border: 2px solid var(--border-vintage);
-    border-radius: 12px;
-    padding: 2rem;
-    }
-
-    /* Цвет текста загруженных файлов */
-    [data-testid="stFileUploader"] label,
-    [data-testid="stFileUploader"] span,
-    [data-testid="stFileUploader"] div {
-        color: #5C4033 !important;  /* Тёмно-коричневый текст */
-    }
-
-    /* Название загруженного файла */
-    [data-testid="stFileUploaderFileName"] {
-        color: #5C4033 !important;
-        font-weight: 500 !important;
-    }
-
-    /* Размер файла */
-    [data-testid="stFileUploaderFileSize"] {
-        color: #8B7355 !important;
-    }
-    /* Expander (слайдеры) - светлый фон */
-    /* Заголовок expander (закрытый) */
-    details summary {
-        background-color: var(--light-parchment) !important;
-        color: var(--dark-brown) !important;
-        border: 1px solid var(--border-vintage) !important;
-        border-radius: 8px !important;
-        padding: 1rem !important;
-    }
-
-    /* Заголовок expander (открытый) */
-    details[open] summary {
-        background-color: var(--warm-cream) !important;
-        border-bottom: none !important;
-        border-radius: 8px 8px 0 0 !important;
-    }
-
-    /* Содержимое expander */
-    details > div {
-        background-color: var(--warm-cream) !important;
-        border: 1px solid var(--border-vintage) !important;
-        border-top: none !important;
-        border-radius: 0 0 8px 8px !important;
-        padding: 1.5rem !important;
-    }
-
-    /* Убираем тёмный фон у всех вложенных div */
-    details > div > div {
-        background: transparent !important;
-    }
-
-    /* Убираем тёмный фон у колонок внутри expander */
-    details [data-testid="column"] {
-        background: transparent !important;
-    }
-
-    /* Все элементы внутри expander - тёмный текст */
-    details * {
-        color: var(--dark-brown) !important;
-    }
-
-    /* Стрелочка expander */
-    details summary::marker {
-        color: var(--secondary-brown) !important;
-    }
-    .streamlit-expanderHeader {
-        background: var(--light-parchment) !important;
-        border: 1px solid var(--border-vintage) !important;
-        border-radius: 8px !important;
-        font-family: 'Lora', serif !important;
-        color: var(--dark-brown) !important;
-    }
-
-    .streamlit-expanderContent {
-        background: var(--warm-cream) !important;
-        border: 1px solid var(--border-vintage) !important;
-        border-radius: 0 0 8px 8px !important;
-        padding: 1.5rem !important;
-    }
-
-    /* Текст внутри expander */
-    .streamlit-expanderContent * {
-        color: var(--dark-brown) !important;
-    }
-
-    /* Поле поиска (text_input) - светлый фон */
-    [data-testid="stTextInput"] input {
-        background-color: var(--warm-cream) !important;
-        color: var(--dark-brown) !important;
-        border: 2px solid var(--border-vintage) !important;
-        border-radius: 8px !important;
-    }
-
-    [data-testid="stTextInput"] input::placeholder {
-        color: var(--secondary-brown) !important;
-        opacity: 0.7 !important;
-    }
-
-    /* Selectbox - светлый фон */
-    [data-testid="stSelectbox"] select,
-    [data-testid="stSelectbox"] div[data-baseweb="select"] {
-        background-color: var(--warm-cream) !important;
-        color: var(--dark-brown) !important;
-        border: 2px solid var(--border-vintage) !important;
-    }
-
-    /* Кнопки внутри expander - светлые */
-    [data-testid="stExpander"] button {
-        background: var(--light-parchment) !important;
-        color: var(--dark-brown) !important;
-        border: 1px solid var(--border-vintage) !important;
-    }
-
-    [data-testid="stExpander"] button:hover {
-        background: var(--warm-cream) !important;
-    }
-
-    /* Download button - светлый */
-    [data-testid="stDownloadButton"] button {
-        background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%) !important;
-        color: var(--warm-cream) !important;
-    }
-
-    /* Прогресс-бар - светлый фон */
-    [data-testid="stProgress"] {
-        background-color: rgba(212, 175, 55, 0.2) !important;
-    }
-
-    /* Убираем все тёмные фоны */
-    div[data-testid="stVerticalBlock"] > div {
-        background: transparent !important;
-    }
-
-    /* Элементы формы - светлые */
-    .stTextInput, .stSelectbox, .stMultiSelect {
-        background: var(--warm-cream) !important;
-    }
-
-    /* Контейнеры внутри expander - светлые */
-    [data-testid="stExpander"] > div {
-        background: transparent !important;
-    }
-
-    [data-testid="stExpander"] [data-testid="stVerticalBlock"] {
-        background: transparent !important;
-    }
-    /* ===== КНОПКИ - СВЕТЛЫЙ ФОН ===== */
-
-    /* Все кнопки Streamlit */
     .stButton > button,
     [data-testid="stDownloadButton"] > button {
         background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%) !important;
-        color: #FFFFFF !important;  /* ✅ Белый текст */
+        color: #FFFFFF !important;
         border: none !important;
         border-radius: 10px !important;
         padding: 0.75rem 1.5rem !important;
@@ -832,25 +563,133 @@ def load_custom_css():
         box-shadow: 0 6px 16px rgba(92, 64, 51, 0.4) !important;
     }
 
-    /* Иконка и текст внутри кнопки - принудительно белые */
     .stButton > button *,
-    [data-testid="stDownloadButton"] > button *,
-    .stButton > button span,
-    [data-testid="stDownloadButton"] > button span {
+    [data-testid="stDownloadButton"] > button * {
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
     }
 
-    /* SVG иконки в кнопках */
-    .stButton > button svg,
-    [data-testid="stDownloadButton"] > button svg {
-        fill: #FFFFFF !important;
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, var(--light-parchment) 0%, var(--primary-beige) 100%);
+        border-right: 3px solid var(--border-vintage);
+    }
+    
+    .info-box {
+        background: rgba(212, 175, 55, 0.1);
+        border-left: 5px solid var(--accent-gold);
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 1.5rem 0;
+        font-family: 'Source Sans Pro', sans-serif;
     }
 
+    .info-box * {
+        color: #5C4033 !important;
+    }
     
+    .success-box {
+        background: rgba(139, 195, 74, 0.1);
+        border-left: 5px solid #8BC34A;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin: 1.5rem 0;
+    }
+    
+    .document-preview {
+        border: 2px solid var(--border-vintage);
+        border-radius: 10px;
+        padding: 1rem;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin: 1rem 0;
+        color: #5C4033 !important;
+    }
+    
+    .stProgress > div > div {
+        background: linear-gradient(90deg, var(--accent-gold), var(--secondary-brown));
+    }
+    
+    .dataframe {
+        border: 2px solid var(--border-vintage);
+        border-radius: 8px;
+        font-family: 'Source Sans Pro', sans-serif;
+    }
+    
+    .archive-footer {
+        text-align: center;
+        padding: 1rem;
+        margin-top: auto;
+        border-top: 2px solid var(--border-vintage);
+        font-family: 'Source Sans Pro', sans-serif;
+        color: var(--secondary-brown);
+        font-size: 0.9rem;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        color: var(--accent-gold);
+    }
+
+    .streamlit-expanderHeader {
+        background: var(--light-parchment) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+        font-family: 'Lora', serif !important;
+        color: var(--dark-brown) !important;
+    }
+
+    .streamlit-expanderContent {
+        background: var(--warm-cream) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-top: none !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 1.5rem !important;
+    }
+
+    .streamlit-expanderContent * {
+        color: var(--dark-brown) !important;
+    }
+
+    [data-testid="stTextInput"] input {
+        background-color: var(--warm-cream) !important;
+        color: var(--dark-brown) !important;
+        border: 2px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+    }
+
+    [data-testid="stTextInput"] input::placeholder {
+        color: var(--secondary-brown) !important;
+        opacity: 0.7 !important;
+    }
+
+    [data-testid="stSelectbox"] div[data-baseweb="select"] {
+        background-color: var(--warm-cream) !important;
+        color: var(--dark-brown) !important;
+        border: 2px solid var(--border-vintage) !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div {
+        background: transparent !important;
+    }
     </style>
     """
+    import streamlit as st
     st.markdown(css, unsafe_allow_html=True)
+
+
+
+
 
 def render_header():
     st.markdown("""
@@ -858,7 +697,7 @@ def render_header():
         <div class="hero-icon">📜</div>
         <div class="hero-title">Archive Vision</div>
         <div class="hero-subtitle">Автоматизированная система распознавания документов</div>
-        <div class="hero-tagline">Сохраняем историю с помощью искусственного интеллекта</div>
+        <div class="hero-tagline">проект команды <b>bestbmstu</b></div>
         <div class="hero-divider">◈ ◆ ◈</div>
     </div>
     """, unsafe_allow_html=True)
@@ -891,24 +730,23 @@ def render_features():
         {
             "icon": "🔍",
             "title": "Современный подход к OCR",
-            "description": """Используем модель TrOCR, дообученную на наборе из 73830 сегментов рукописных текстов на русском языке.
+            "description": """Используем модель TrOCR, дообученную на 73830 сегментах рукописных текстов на русском языке
                 <br><br><strong>Преимущества:</strong>
                 <br>• Открытый исходный код
-                <br>• Возможность запуска в закрытом контуре
-                <br>• Возможность дообучения""",
+                <br>• Возможность запуска в закрытом контуре""",
             "col": col1
         },
         {
             "icon": "✏️",
             "title": "Коррекция текста",
-            "description": "Для дальнейшего улучшения работы сервиса эксперты имеют возможность корректировать результат распознавания.",
-            "col": col2
+            "description": "Для дальнейшего улучшения работы сервиса эксперты имеют возможность корректировать результат распознавания",
+            "col": col3
         },
         {
             "icon": "📚",
             "title": "История расшифровок",
-            "description": "Эксперту доступна история всех когда-либо расшифрованных документов с возможностью экспорта расшифрованного текста в форматах json, csv, txt",
-            "col": col3
+            "description": "Эксперту доступна история всех когда-либо расшифрованных документов с возможностью экспорта расшифрованного текста в форматах json, csv и txt",
+            "col": col2
         }
     ]
     for feature in features:
@@ -921,11 +759,13 @@ def render_features():
             </div>
             """, unsafe_allow_html=True)
 
+
+
 def render_upload_section():
     """Upload section with backend integration"""
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
     st.markdown(
-        "<h2 style='text-align: center; font-family: Playfair Display, serif; color: #5C4033; margin-bottom: 1.5rem;'>📤 Загрузка Архивных Документов</h2>",
+        "<h2 style='text-align: center; font-family: Playfair Display, serif; color: #5C4033; margin-bottom: 1.5rem;'>Загрузка Архивных Документов</h2>",
         unsafe_allow_html=True
     )
 
@@ -1329,40 +1169,19 @@ def render_export_section():
                     use_container_width=True
                 )
 
-def render_footer():
-    """Render elegant footer"""
-    st.markdown("""
-    <div class="archive-footer fade-in">
-        <div style="font-family: Playfair Display, serif; font-size: 1.1rem; color: #5C4033; margin-bottom: 1rem;">
-            ◈ ◆ ◈
-        </div>
-        <p style="margin: 0.5rem 0;">
-            <strong>Главное архивное управление Москвы</strong><br>
-            Сохраняя историю Москвы и ее жителей с 1962 года
-        </p>
-        <p style="margin: 1rem 0; font-size: 0.9rem;">
-            Роботизированный архивный кластер | Цифровая консервация | Генеалогические исследования
-        </p>
-        <p style="margin: 0.5rem 0; font-size: 0.85rem; color: #8B7355;">
-            © Архив Москвы, 2025. Все исторические документы охраняются в соответствии с законодательством Российской Федерации.
-        </p>
+def render_accuracy_card():
+    total_count = get_all_files_count()
+    total_str = f"{total_count:,}".replace(",", " ")  # 20 436 091
+
+    st.markdown(f"""
+    <div class="stats-wrapper">
+      <section class="stats-hero fade-in">
+        <div class="stats-number">{total_str}</div>
+        <div class="stats-caption">архивных документов расшифровано</div>
+      </section>
     </div>
     """, unsafe_allow_html=True)
 
-def render_accuracy_card():
-    """Display accuracy card with real backend data"""
-    total_count = get_all_files_count()
-    
-    st.markdown(f"""
-    <div class='stat-card fade-in' style='margin-top: 2rem;'>
-        <div style='font-family: Playfair Display, serif; font-size: 2rem; color: #5C4033; letter-spacing: 2px;'>🎯 Точность Модели</div>
-        <div style='font-family: Source Sans Pro, sans-serif; font-size:1.2rem; color:#704214; margin-top:1rem;'>
-            Наш искусственный интеллект успешно распознал <strong>94,2%</strong> полей в архивных документах за последний месяц.
-            <br>Оценка на основе <strong>{total_count:,}</strong> реальных документов периода 1772-1917 гг.<br>
-            <span style='color: #8BC34A; font-weight: 600;'>Достоверность результатов подтверждена экспертами архива.</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # Main application
@@ -1404,7 +1223,7 @@ def main():
     elif page == "🗄️ Архив Документов":
         render_archive_page()
     
-    render_footer()
+    # render_footer()
 
 
 if __name__ == "__main__":
