@@ -187,8 +187,8 @@ def get_all_files_count():
     try:
         response = requests.get(f"{API_BASE}/documents/stats")
         if response.status_code == 200:
-            files = response.json()
-            return len(files)
+            count = response.json()
+            return count["processed_total"]
         return 0
     except Exception:
         return 0
@@ -842,6 +842,7 @@ def render_results_section():
                         st.success("💾 Изменения сохранены")
                     else:
                         st.error("❌ Не удалось сохранить изменения")
+
 
 def render_export_section():
     """Export processed documents"""
