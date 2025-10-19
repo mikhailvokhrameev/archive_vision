@@ -710,7 +710,7 @@ def process_documents_batch(uploaded_files):
     for i, uploaded_file in enumerate(uploaded_files):
         file_name = uploaded_file.name
         
-        st.info(f"📄 Обработка: **{file_name}**")
+        st.info(f"📄 Обработка: {file_name}")
         
         # 1. Upload file
         upload_result = upload_file_to_backend(uploaded_file)
@@ -733,11 +733,6 @@ def process_documents_batch(uploaded_files):
         
         while True:
             wait_result = wait_for_processing(file_id)
-            
-            if not wait_result["success"]:
-                st.error(f"❌ Ошибка ожидания {file_name}: {wait_result['error']}")
-                break
-            
             progress = wait_result.get("progress", 0)
             progress_bar.progress(int(progress))
             status_text.text(f"Прогресс: {progress:.1f}%")
@@ -747,16 +742,24 @@ def process_documents_batch(uploaded_files):
                 result = get_transcript(file_id)
                 if result["success"]:
                     transcript_data = result["data"]
+                    
+                    # ✅ ИСПРАВЛЕНИЕ: Собираем текст из recognized_words
+                    recognized_words = transcript_data.get("recognized_words", [])
+                    text = " ".join([word.get("text", "") for word in recognized_words])
+                    
                     st.session_state.processed_files[file_name] = {
-                        "text": transcript_data.get("text", ""),
+                        "text": text,  # ✅ Теперь содержит реальный распознанный текст
                         "path": temp_path,
                         "file_id": file_id,
-                        "transcript_id": transcript_data.get("transcript_id")
+                        "transcript_id": transcript_data.get("transcript_id"),
+                        "raw_data": transcript_data  # Сохраняем полный ответ для отладки
                     }
                     st.success(f"✅ {file_name} обработан!")
                 else:
                     st.error(f"❌ Не удалось получить результат для {file_name}")
                 break
+            
+            time.sleep(2)
             
             time.sleep(2)
     
@@ -773,6 +776,7 @@ def process_documents_batch(uploaded_files):
         </p>
     </div>
     """, unsafe_allow_html=True)
+
 
 
 def display_results():
