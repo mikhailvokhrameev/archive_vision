@@ -138,5 +138,5 @@ streamlit run ./front/app.py
 Вся работа с сервисом происходит через фронтенд (по умолчанию http://127.0.0.1:8000). Для загрузки и обработки документа требуется загрузить файл изображения документа через интерфейс.
 
 #### Запуск dockerfile
-* Build: docker build -t myapp .
-* Run: docker run -p 8501:8501 myapp
+* Build and run: docker-compose up --build
+* Run: docker-compose up
