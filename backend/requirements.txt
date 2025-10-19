@@ -2,15 +2,15 @@
 
 # Web framework
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 
 # Database
 sqlalchemy
-pydantic-settings
 psycopg2-binary
+pydantic-settings
 
-# Core OCR and image processing
+# OCR и обработка изображений
 pillow
 pytesseract
 python-dotenv
@@ -20,34 +20,10 @@ numpy
 opencv-python-headless
 python-docx
 
-
-# Deep Learning
 torch
 torchvision
 transformers
 
-# # Advanced OCR components (added)
-# # MMOCR for DBNet text detection
-# openmim  # Required for MMOCR installation
-# mmengine
-# mmcv
-# mmdet
-# mmocr
-
-# KenLM for language model rescoring
-# Install from git: pip install git+https://github.com/kpu/kenlm.git
-# Alternative: kenlm (if available on PyPI)
-
-# Russian morphological analysis
-pymorphy2
-pymorphy2-dicts-ru
-
-# Image processing enhancements
-scikit-image  # for threshold_sauvola and other filters
-tqdm  # progress bars (already used in original code)
-
-# Optional: Document dewarping (if using DewarpNet)
-# Add torch-based libraries if using neural dewarping models
-
-# Development and utilities
-cmake  # Required for some compiled packages like KenLM
+# Дополнительные инструменты
+scikit-image
+tqdm

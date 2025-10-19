@@ -28,7 +28,7 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8000/api/v1"
+    return "http://127.0.0.1:8001/api/v1"
 
 API_BASE = get_api_base_url()
 TEMP_DIR = "temp_uploads"
@@ -533,13 +533,28 @@ def load_custom_css():
     }
     
     /* Expander styling */
+        /* Expander styling - светлый фон */
     .streamlit-expanderHeader {
-        background: var(--light-parchment);
-        border: 1px solid var(--border-vintage);
-        border-radius: 8px;
-        font-family: 'Lora', serif;
-        color: var(--dark-brown);
+        background: var(--light-parchment) !important;  /* Светлый пергаментный цвет */
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+        font-family: 'Lora', serif !important;
+        color: var(--dark-brown) !important;
     }
+
+    /* Содержимое expander - тоже светлое */
+    .streamlit-expanderContent {
+        background: var(--warm-cream) !important;  /* Тёплый кремовый фон */
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 1.5rem !important;
+    }
+
+    /* Текст внутри expander */
+    .streamlit-expanderContent * {
+        color: var(--dark-brown) !important;
+    }
+
     
     /* File uploader styling */
     [data-testid="stFileUploader"] {
@@ -588,6 +603,30 @@ def load_custom_css():
         display: inline-block;
         cursor: help;
         color: var(--accent-gold);
+    }
+    [data-testid="stFileUploader"] {
+    background: var(--warm-cream);
+    border: 2px solid var(--border-vintage);
+    border-radius: 12px;
+    padding: 2rem;
+    }
+
+    /* Цвет текста загруженных файлов */
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] div {
+        color: #5C4033 !important;  /* Тёмно-коричневый текст */
+    }
+
+    /* Название загруженного файла */
+    [data-testid="stFileUploaderFileName"] {
+        color: #5C4033 !important;
+        font-weight: 500 !important;
+    }
+
+    /* Размер файла */
+    [data-testid="stFileUploaderFileSize"] {
+        color: #8B7355 !important;
     }
     </style>
     """
