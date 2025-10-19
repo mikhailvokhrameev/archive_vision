@@ -39,7 +39,32 @@ Frontend & Визуализация
 
 ---
 
-### Установка
+### Установка и запуск с использованием Docker (рекомендуется)
+
+1. **Клонируйте репозиторий:**
+
+   ```bash
+   git clone https://github.com/mikhailvokhrameev/archive_vision.git
+   cd archive_vision
+   ```
+
+2. **Установите Docker в зависимости от вашей ОС:**
+   * Windows: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/windows-install/).
+   * macOS: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/mac-install/).
+   * Linux: Установите Docker Engine по [официальной инструкции](https://docs.docker.com/engine/install/).
+
+3. **Запустите docker-compose:**
+
+   **Важно:** Все команды должны запускаться из корневой папки проекта.
+   
+   ```bash
+   docker-compose up --build # build and run
+   docker-compose up #run
+   ```
+
+---
+
+### Альтернативный вариант (без Docker):
 
 Для настройки среды проекта выполните следующее:
 
@@ -49,6 +74,7 @@ Frontend & Визуализация
    git clone https://github.com/mikhailvokhrameev/archive_vision.git
    cd archive_vision
    ```
+   
 2. **Создайте и активируйте виртуальное окружение (рекомендуется):**
 
    ```bash
@@ -66,55 +92,34 @@ Frontend & Визуализация
    ```bash
    pip install -r requirements.txt
    ```
-   Установите Docker в зависимости от вашей ОС:
-   * Windows: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/windows-install/).
-   * macOS: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/mac-install/).
-   * Linux: Установите Docker Engine по [официальной инструкции](https://docs.docker.com/engine/install/).
 
----
+#### **Запуск:**
 
-### Использование
+ 1. **Запуск backend**
 
-**Важно:** Все команды должны запускаться из корневой папки проекта.
+      Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
+      ```bash
+      uvicorn main:app --reload --host 127.0.0.1 --port 8001
+      ```
 
-Рекомендуется запускать сервис через Docker!
+2. **Запуск frontend**
 
-#### Запуск docker-сompose
+   Этот скрипт запускает frontend по адресу http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
+   
+   ```bash
+   streamlit run ./front/app.py
+   ```
 
-* Build and run: docker-compose up --build
-* Run: docker-compose up
+3. **Настройка БД**
 
----
+   В качестве базы данных используется PostgreSQL. Скрипт для создания таблиц в базе данных представлен в файле generate_db.sql. Для связи backend и базы данных требуется в файле backend\database.py изменить:
+   
+   * DB_USER - имя администратора БД;
+   * DB_PASS - пароль администратора;
+   * DB_HOST - IP адрес БД;
+   * DB_PORT - порт для подключения к БД;
+   * DB_NAME - название базы данных.
 
-#### Альтернативный вариант (без docker):
+4. **Работа с сервисом**
 
-Если по какой-то магической причине docker-compose не запустился:
-
-#### Шаг 1: Запуск backend
-
-Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
-```bash
-uvicorn main:app --reload --host 127.0.0.1 --port 8001
-```
-
-#### Шаг 2: Запуск frontend
-
-Этот скрипт запускает frontend по адресу http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
-
-```bash
-streamlit run ./front/app.py
-```
-
-#### Шаг 3: Настройка БД
-
-В качестве базы данных используется PostgreSQL. Скрипт для создания таблиц в базе данных представлен в файле generate_db.sql. Для связи backend и базы данных требуется в файле backend\database.py изменить:
-
-* DB_USER - имя администратора БД;
-* DB_PASS - пароль администратора;
-* DB_HOST - IP адрес БД;
-* DB_PORT - порт для подключения к БД;
-* DB_NAME - название базы данных.
-
-#### Шаг 4: Работа с сервисом
-
-По умолчанию работа сервиса производится по адресу http://127.0.0.1:8501. Для загрузки и обработки документа требуется загрузить файл с изображением страницы документа через веб интерфейс.
+   По умолчанию работа сервиса производится по адресу http://127.0.0.1:8501. Для загрузки и обработки документа требуется загрузить файл с изображением страницы документа через веб интерфейс.
