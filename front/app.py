@@ -772,9 +772,21 @@ def process_documents_batch(uploaded_files):
         
         while True:
             wait_result = wait_for_processing(file_id)
+            
+            if not wait_result["success"]:
+                st.error(f"❌ Ошибка ожидания {file_name}: {wait_result['error']}")
+                break
+            
             progress = wait_result.get("progress", 0)
             progress_bar.progress(int(progress))
-            status_text.text(f"Прогресс: {progress:.1f}%")
+            
+            # ✅ ДОБАВЛЕН ВЫВОД ПРОЦЕНТОВ
+            status_text.markdown(
+                f"<div style='text-align: center; font-family: Source Sans Pro, sans-serif; "
+                f"font-size: 1.1rem; color: #8B7355; margin-top: 0.5rem;'>"
+                f"⏳ Прогресс: <strong>{progress:.1f}%</strong></div>",
+                unsafe_allow_html=True
+            )
             
             if wait_result.get("completed"):
                 # 4. Get final result
