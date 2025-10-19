@@ -28,7 +28,7 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8001/api/v1"
+    return "http://127.0.0.1:8000/api/v1"
 
 API_BASE = get_api_base_url()
 TEMP_DIR = "temp_uploads"
@@ -185,7 +185,7 @@ def get_transcript(file_id):
 def get_all_files_count():
     """Get total count of processed files"""
     try:
-        response = requests.get(f"{API_BASE}/documents/all")
+        response = requests.get(f"{API_BASE}/documents/stats")
         if response.status_code == 200:
             files = response.json()
             return len(files)
@@ -193,13 +193,6 @@ def get_all_files_count():
     except Exception:
         return 0
 
-def check_backend_status():
-    """Check if backend is online"""
-    try:
-        response = requests.get(f"{API_BASE}/documents/all", timeout=2)
-        return response.status_code == 200
-    except:
-        return False
 
 
 # Page configuration - must be first Streamlit command
@@ -852,9 +845,10 @@ def render_results_section():
 
 def render_export_section():
     """Export processed documents"""
-    if not st.session_state.processed_files:
+    if not st.session_state.get("processed_files"):
         return
-    
+
+    # --- UI Elements ---
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
     st.markdown(
         "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📥 Экспорт Данных</h2>",
@@ -866,50 +860,81 @@ def render_export_section():
     with col1:
         export_format = st.selectbox(
             "Формат экспорта:",
-            ("JSON", "CSV", "TXT")
+            ("JSON", "CSV", "TXT"),
+            key="export_format_selector"
         )
     
     with col2:
         if st.button("📦 Экспортировать данные", use_container_width=True):
-            export_data_list = []
-            for name, data in st.session_state.processed_files.items():
-                export_data_list.append({
-                    "filename": name,
-                    "file_id": data["file_id"],
-                    "transcript_id": data["transcript_id"],
-                    "text": data["text"]
-                })
+            # Define a placeholder for the content to be downloaded.
+            export_str = None
             
-            # Prepare export content
+            # --- JSON Export Logic ---
             if export_format == "JSON":
-                export_str = json.dumps(export_data_list, ensure_ascii=False, indent=4)
-                mime = "application/json"
-                file_ext = ".json"
-            elif export_format == "CSV":
-                csv_lines = ['"filename","file_id","transcript_id","text"']
-                for item in export_data_list:
-                    text_escaped = item['text'].replace('"', '""')
-                    csv_lines.append(
-                        f'"{item["filename"]}","{item["file_id"]}","{item["transcript_id"]}","{text_escaped}"'
-                    )
-                export_str = "\n".join(csv_lines)
-                mime = "text/csv"
-                file_ext = ".csv"
-            else:  # TXT
-                txt_lines = []
-                for item in export_data_list:
-                    txt_lines.append(f"{'='*60}\nФайл: {item['filename']}\nFile ID: {item['file_id']}\n{'='*60}\n{item['text']}\n")
-                export_str = "\n".join(txt_lines)
-                mime = "text/plain"
-                file_ext = ".txt"
+                # IMPORTANT: Define the base URL for your FastAPI backend.
+                # This might come from st.secrets or a config file.
+                
+                all_transcripts = {}
+                try:
+                    with st.spinner("Загрузка данных с сервера..."):
+                        for name, data in st.session_state.processed_files.items():
+                            file_id = data.get("file_id")
+                            if file_id:
+                                api_url = f"{API_BASE}/documents/export/json/{file_id}"
+                                response = requests.get(api_url)
+                                response.raise_for_status()  # Raise an exception for HTTP error codes
+                                
+                                # Use the original filename as the key in the combined JSON
+                                all_transcripts[name] = response.json()
+                    
+                    export_str = json.dumps(all_transcripts, ensure_ascii=False, indent=4)
+                    mime = "application/json"
+                    file_ext = ".json"
+                
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Ошибка при экспорте JSON: Не удалось связаться с API. {e}")
+                    st.stop() # Stop execution to prevent showing a broken download button
+
+            # --- CSV/TXT Export Logic (Original logic) ---
+            else:
+                export_data_list = []
+                for name, data in st.session_state.processed_files.items():
+                    export_data_list.append({
+                        "filename": name,
+                        "file_id": data["file_id"],
+                        "transcript_id": data["transcript_id"],
+                        "text": data["text"]
+                    })
+                
+                if export_format == "CSV":
+                    csv_lines = ['"filename","file_id","transcript_id","text"']
+                    for item in export_data_list:
+                        text_escaped = item['text'].replace('"', '""')
+                        csv_lines.append(
+                            f'"{item["filename"]}","{item["file_id"]}","{item["transcript_id"]}","{text_escaped}"'
+                        )
+                    export_str = "\n".join(csv_lines)
+                    mime = "text/csv"
+                    file_ext = ".csv"
+                
+                else:  # TXT
+                    txt_lines = []
+                    for item in export_data_list:
+                        txt_lines.append(f"{'='*60}\nФайл: {item['filename']}\nFile ID: {item['file_id']}\n{'='*60}\n{item['text']}\n")
+                    export_str = "\n".join(txt_lines)
+                    mime = "text/plain"
+                    file_ext = ".txt"
             
-            st.download_button(
-                label="💾 Скачать файл",
-                data=export_str,
-                file_name=f"archive_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}",
-                mime=mime,
-                use_container_width=True
-            )
+            # --- Download Button ---
+            # This button is rendered only if the 'export_str' was successfully created.
+            if export_str:
+                st.download_button(
+                    label="💾 Скачать файл",
+                    data=export_str,
+                    file_name=f"archive_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}{file_ext}",
+                    mime=mime,
+                    use_container_width=True
+                )
 
 def render_footer():
     """Render elegant footer"""

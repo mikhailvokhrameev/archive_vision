@@ -7,6 +7,7 @@ python-multipart
 
 # Database
 sqlalchemy
+pydantic-settings
 psycopg2-binary
 
 # Core OCR and image processing
@@ -17,19 +18,21 @@ pdf2image
 scipy
 numpy
 opencv-python-headless
+python-docx
+
 
 # Deep Learning
 torch
 torchvision
 transformers
 
-# Advanced OCR components (added)
-# MMOCR for DBNet text detection
-openmim  # Required for MMOCR installation
-mmengine
-mmcv
-mmdet
-mmocr
+# # Advanced OCR components (added)
+# # MMOCR for DBNet text detection
+# openmim  # Required for MMOCR installation
+# mmengine
+# mmcv
+# mmdet
+# mmocr
 
 # KenLM for language model rescoring
 # Install from git: pip install git+https://github.com/kpu/kenlm.git

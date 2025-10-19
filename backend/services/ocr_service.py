@@ -25,6 +25,19 @@ from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from schemas.document import RecognitionResult, TranscriptData
 from core.config import settings
 
+# --- MONKEY-PATCH FOR PYTHON 3.11+ COMPATIBILITY ---
+# This code fixes "AttributeError: module 'inspect' has no attribute 'getargspec'",
+# which occurs in older libraries (like mmcv) on Python 3.11 and newer.
+import inspect
+import sys
+
+if sys.version_info >= (3, 11) and not hasattr(inspect, 'getargspec'):
+    def getargspec_replacement(func):
+        spec = inspect.getfullargspec(func)
+        # Return a tuple compatible with the old getargspec format
+        return spec.args, spec.varargs, spec.varkw, spec.defaults
+    inspect.getargspec = getargspec_replacement
+# --- END PATCH ---
 _token_re = re.compile(r"[А-Яа-яA-Za-zЁёІіѢѣѲѳѴѵ]+", flags=re.UNICODE)
 
 # --- Опциональные зависимости ---
