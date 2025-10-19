@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
 # Копируем зависимости
 COPY requirements.txt .
 
+# ✅ УСТАНОВКА PYTORCH С CUDA 12.8 ИЗ КАСТОМНОГО ИНДЕКСА
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
 # Устанавливаем Python-зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 

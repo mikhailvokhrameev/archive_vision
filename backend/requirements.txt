@@ -20,10 +20,6 @@ numpy
 opencv-python-headless
 python-docx
 
-torch
-torchvision
-transformers
-
 # Дополнительные инструменты
 scikit-image
 tqdm

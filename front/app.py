@@ -193,6 +193,40 @@ def get_all_files_count():
     except Exception:
         return 0
 
+def get_all_transcripts():
+    """Get all transcripts from backend"""
+    try:
+        response = requests.get(f"{API_BASE}/documents/transcripts", timeout=30)
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_all_files():
+    """Get all uploaded files from backend"""
+    try:
+        response = requests.get(f"{API_BASE}/documents/", timeout=30)
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_file_by_id(file_id):
+    """Get specific file info"""
+    try:
+        response = requests.get(f"{API_BASE}/documents/{file_id}/upload", timeout=30)
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # Page configuration - must be first Streamlit command
@@ -339,6 +373,9 @@ def load_custom_css():
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
+        min-height: 320px;  /* ✅ ДОБАВЛЕНО: фиксированная минимальная высота */
+        display: flex;
+        flex-direction: column;
     }
     
     .feature-card::before {
@@ -362,7 +399,7 @@ def load_custom_css():
         margin-bottom: 1rem;
         display: block;
     }
-    
+
     .feature-title {
         font-family: 'Playfair Display', serif;
         font-size: 1.8rem;
@@ -370,12 +407,13 @@ def load_custom_css():
         margin-bottom: 1rem;
         font-weight: 600;
     }
-    
+
     .feature-description {
         font-family: 'Source Sans Pro', sans-serif;
         font-size: 1.05rem;
         color: var(--deep-sepia);
         line-height: 1.7;
+        flex-grow: 1;  /* ✅ ДОБАВЛЕНО: текст занимает всё свободное пространство */
     }
     
     /* Upload section */
@@ -470,6 +508,11 @@ def load_custom_css():
         border-radius: 8px;
         margin: 1.5rem 0;
         font-family: 'Source Sans Pro', sans-serif;
+        color: #5C4033 !important;  /* ✅ Темный текст */
+    }
+
+    .info-box * {
+        color: #5C4033 !important;  /* ✅ Все элементы внутри тёмные */
     }
     
     .success-box {
@@ -478,6 +521,17 @@ def load_custom_css():
         padding: 1.5rem;
         border-radius: 8px;
         margin: 1.5rem 0;
+    }
+    
+    /* Document preview с темным текстом */
+    .document-preview {
+        border: 2px solid var(--border-vintage);
+        border-radius: 10px;
+        padding: 1rem;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        margin: 1rem 0;
+        color: #5C4033 !important;  /* ✅ Темный текст */
     }
     
     /* Progress indicators */
@@ -628,6 +682,172 @@ def load_custom_css():
     [data-testid="stFileUploaderFileSize"] {
         color: #8B7355 !important;
     }
+    /* Expander (слайдеры) - светлый фон */
+    /* Заголовок expander (закрытый) */
+    details summary {
+        background-color: var(--light-parchment) !important;
+        color: var(--dark-brown) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+    }
+
+    /* Заголовок expander (открытый) */
+    details[open] summary {
+        background-color: var(--warm-cream) !important;
+        border-bottom: none !important;
+        border-radius: 8px 8px 0 0 !important;
+    }
+
+    /* Содержимое expander */
+    details > div {
+        background-color: var(--warm-cream) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-top: none !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 1.5rem !important;
+    }
+
+    /* Убираем тёмный фон у всех вложенных div */
+    details > div > div {
+        background: transparent !important;
+    }
+
+    /* Убираем тёмный фон у колонок внутри expander */
+    details [data-testid="column"] {
+        background: transparent !important;
+    }
+
+    /* Все элементы внутри expander - тёмный текст */
+    details * {
+        color: var(--dark-brown) !important;
+    }
+
+    /* Стрелочка expander */
+    details summary::marker {
+        color: var(--secondary-brown) !important;
+    }
+    .streamlit-expanderHeader {
+        background: var(--light-parchment) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+        font-family: 'Lora', serif !important;
+        color: var(--dark-brown) !important;
+    }
+
+    .streamlit-expanderContent {
+        background: var(--warm-cream) !important;
+        border: 1px solid var(--border-vintage) !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 1.5rem !important;
+    }
+
+    /* Текст внутри expander */
+    .streamlit-expanderContent * {
+        color: var(--dark-brown) !important;
+    }
+
+    /* Поле поиска (text_input) - светлый фон */
+    [data-testid="stTextInput"] input {
+        background-color: var(--warm-cream) !important;
+        color: var(--dark-brown) !important;
+        border: 2px solid var(--border-vintage) !important;
+        border-radius: 8px !important;
+    }
+
+    [data-testid="stTextInput"] input::placeholder {
+        color: var(--secondary-brown) !important;
+        opacity: 0.7 !important;
+    }
+
+    /* Selectbox - светлый фон */
+    [data-testid="stSelectbox"] select,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] {
+        background-color: var(--warm-cream) !important;
+        color: var(--dark-brown) !important;
+        border: 2px solid var(--border-vintage) !important;
+    }
+
+    /* Кнопки внутри expander - светлые */
+    [data-testid="stExpander"] button {
+        background: var(--light-parchment) !important;
+        color: var(--dark-brown) !important;
+        border: 1px solid var(--border-vintage) !important;
+    }
+
+    [data-testid="stExpander"] button:hover {
+        background: var(--warm-cream) !important;
+    }
+
+    /* Download button - светлый */
+    [data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%) !important;
+        color: var(--warm-cream) !important;
+    }
+
+    /* Прогресс-бар - светлый фон */
+    [data-testid="stProgress"] {
+        background-color: rgba(212, 175, 55, 0.2) !important;
+    }
+
+    /* Убираем все тёмные фоны */
+    div[data-testid="stVerticalBlock"] > div {
+        background: transparent !important;
+    }
+
+    /* Элементы формы - светлые */
+    .stTextInput, .stSelectbox, .stMultiSelect {
+        background: var(--warm-cream) !important;
+    }
+
+    /* Контейнеры внутри expander - светлые */
+    [data-testid="stExpander"] > div {
+        background: transparent !important;
+    }
+
+    [data-testid="stExpander"] [data-testid="stVerticalBlock"] {
+        background: transparent !important;
+    }
+    /* ===== КНОПКИ - СВЕТЛЫЙ ФОН ===== */
+
+    /* Все кнопки Streamlit */
+    .stButton > button,
+    [data-testid="stDownloadButton"] > button {
+        background: linear-gradient(135deg, var(--secondary-brown) 0%, var(--deep-sepia) 100%) !important;
+        color: #FFFFFF !important;  /* ✅ Белый текст */
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 0.75rem 1.5rem !important;
+        font-family: 'Source Sans Pro', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        box-shadow: 0 4px 12px rgba(92, 64, 51, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+
+    .stButton > button:hover,
+    [data-testid="stDownloadButton"] > button:hover {
+        background: linear-gradient(135deg, var(--deep-sepia) 0%, var(--dark-brown) 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 16px rgba(92, 64, 51, 0.4) !important;
+    }
+
+    /* Иконка и текст внутри кнопки - принудительно белые */
+    .stButton > button *,
+    [data-testid="stDownloadButton"] > button *,
+    .stButton > button span,
+    [data-testid="stDownloadButton"] > button span {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+    }
+
+    /* SVG иконки в кнопках */
+    .stButton > button svg,
+    [data-testid="stDownloadButton"] > button svg {
+        fill: #FFFFFF !important;
+    }
+
+    
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -670,20 +890,24 @@ def render_features():
     features = [
         {
             "icon": "🔍",
-            "title": "Распознавание ИИ",
-            "description": "Современные алгоритмы машинного обучения, обученные на исторических документах. Высокая точность обработки рукописных и печатных архивных данных.",
+            "title": "Современный подход к OCR",
+            "description": """Используем модель TrOCR, дообученную на наборе из 73830 сегментов рукописных текстов на русском языке.
+                <br><br><strong>Преимущества:</strong>
+                <br>• Открытый исходный код
+                <br>• Возможность запуска в закрытом контуре
+                <br>• Возможность дообучения""",
             "col": col1
         },
         {
-            "icon": "📊",
-            "title": "Умная индексация",
-            "description": "Автоматическое выделение ключевых данных и структурирование метаданных. Поиск по базе для генеалогии и исследований.",
+            "icon": "✏️",
+            "title": "Коррекция текста",
+            "description": "Для дальнейшего улучшения работы сервиса эксперты имеют возможность корректировать результат распознавания.",
             "col": col2
         },
         {
-            "icon": "🗄️",
-            "title": "Интеграция с базой",
-            "description": "Подключение к архивным информационным системам. Формирование долгосрочной базы для хранения и поиска исторических данных.",
+            "icon": "📚",
+            "title": "История расшифровок",
+            "description": "Эксперту доступна история всех когда-либо расшифрованных документов с возможностью экспорта расшифрованного текста в форматах json, csv, txt",
             "col": col3
         }
     ]
@@ -855,6 +1079,119 @@ def display_results():
         st.button("🔄 Process Another", use_container_width=True, key="process_another")
     st.markdown('</div>', unsafe_allow_html=True)
 
+def render_archive_page():
+    """Display all previously processed documents"""
+    st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>🗄️ Архив Расшифрованных Документов</h2>",
+        unsafe_allow_html=True
+    )
+    
+    # Получаем список транскриптов (metadata)
+    with st.spinner("Загрузка архива..."):
+        transcripts_result = get_all_transcripts()
+    
+    if not transcripts_result["success"]:
+        st.error(f"❌ Ошибка загрузки: {transcripts_result['error']}")
+        return
+    
+    transcripts_meta = transcripts_result["data"]
+    
+    if not transcripts_meta:
+        st.info("📭 Архив пуст. Загрузите документы на главной странице.")
+        return
+    
+    # Статистика
+    st.markdown(f"""
+    <div style='text-align: center; margin: 1.5rem 0;'>
+        <span style='font-family: "Lora", serif; font-size: 1.1rem; color: #704214;'>
+            Всего документов в архиве: <strong style='font-size: 1.3rem;'>{len(transcripts_meta)}</strong>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
+    
+    # Поиск
+    search_query = st.text_input("🔍 Поиск по тексту", placeholder="Введите ключевое слово...", key="archive_search")
+    
+    # Отображение документов
+    for idx, meta in enumerate(transcripts_meta):
+        file_id = meta.get("file_id")
+        transcript_id = meta.get("transcript_id")
+        created_at = meta.get("created_at", "N/A")
+        wer = meta.get("wer", {}).get("wer", "N/A")
+        
+        # ✅ ПОЛУЧАЕМ ПОЛНЫЙ ТРАНСКРИПТ с текстом
+        full_transcript_result = get_transcript(file_id)
+        
+        if not full_transcript_result["success"]:
+            st.warning(f"⚠️ Не удалось загрузить транскрипт для {file_id}")
+            continue
+        
+        full_data = full_transcript_result["data"]
+        recognized_words = full_data.get("recognized_words", [])
+        
+        # Извлекаем текст
+        if recognized_words:
+            text = " ".join([w.get("text", "") for w in recognized_words if isinstance(w, dict)])
+        else:
+            text = ""
+        
+        # Фильтр по поиску
+        if search_query and text and search_query.lower() not in text.lower():
+            continue
+        
+        # Отображение
+        with st.expander(f"📄 **Документ #{transcript_id[:8]}** — {created_at[:10]}"):
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.markdown(f"""
+                <div style='background: rgba(212, 175, 55, 0.1); border-left: 5px solid #D4AF37; 
+                     padding: 1rem; border-radius: 8px; color: #5C4033;'>
+                    <strong style='color: #5C4033;'>📋 Метаданные</strong><br><br>
+                    <span style='color: #704214;'><strong>File ID:</strong> {file_id}</span><br>
+                    <span style='color: #704214;'><strong>Transcript ID:</strong> {transcript_id}</span><br>
+                    <span style='color: #704214;'><strong>Создан:</strong> {created_at[:19]}</span><br>
+                    <span style='color: #704214;'><strong>Слов:</strong> {len(recognized_words)}</span><br>
+                    <span style='color: #704214;'><strong>WER:</strong> {wer}</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Скачивание
+                st.download_button(
+                    "📥 Скачать JSON",
+                    data=json.dumps(full_data, ensure_ascii=False, indent=2),
+                    file_name=f"transcript_{transcript_id[:8]}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key=f"download_{idx}_{transcript_id}"
+                )
+            
+            with col2:
+                st.markdown("<strong style='color: #5C4033;'>📝 Распознанный текст</strong>", unsafe_allow_html=True)
+                
+                if text:
+                    st.markdown(f"""
+                    <div style='height: 300px; overflow-y: auto; padding: 1.5rem; 
+                         background: white; border: 2px solid #D4AF37; border-radius: 8px; 
+                         color: #5C4033; font-family: Lora, serif; line-height: 1.8;'>
+                        {text}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.warning("⚠️ Текст не распознан")
+                
+                # Уверенность
+                if recognized_words:
+                    avg_conf = sum(w.get("confidence", 0) for w in recognized_words) / len(recognized_words)
+                    st.progress(avg_conf, text=f"Средняя уверенность: {avg_conf*100:.1f}%")
+
+
+
+
+
 def render_results_section():
     """Display and edit transcribed results"""
     if not st.session_state.processed_files:
@@ -1000,14 +1337,14 @@ def render_footer():
             ◈ ◆ ◈
         </div>
         <p style="margin: 0.5rem 0;">
-            <strong>Moscow Main Archive Department</strong><br>
-            Preserving the history of Moscow and its residents since 1962
+            <strong>Главное архивное управление Москвы</strong><br>
+            Сохраняя историю Москвы и ее жителей с 1962 года
         </p>
         <p style="margin: 1rem 0; font-size: 0.9rem;">
-            Robotized Archive Cluster | Digital Preservation | Genealogical Research
+            Роботизированный архивный кластер | Цифровая консервация | Генеалогические исследования
         </p>
         <p style="margin: 0.5rem 0; font-size: 0.85rem; color: #8B7355;">
-            © 2025 Moscow Archives. All historical documents are protected under Russian Federation law.
+            © Архив Москвы, 2025. Все исторические документы охраняются в соответствии с законодательством Российской Федерации.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1032,13 +1369,43 @@ def render_accuracy_card():
 def main():
     """Main application entry point"""
     load_custom_css()
-    render_header()
-    render_accuracy_card()
-    render_features()
-    render_upload_section()
-    render_results_section()
-    render_export_section()
+    
+    # Sidebar navigation
+    with st.sidebar:
+        st.markdown("""
+        <div style='text-align: center; padding: 2rem 0;'>
+            <div style='font-size: 3rem;'>📜</div>
+            <div style='font-family: Playfair Display, serif; font-size: 1.5rem; color: #5C4033;'>
+                Archive Vision
+            </div>
+            <div style='color: #8B7355; margin-top: 0.5rem;'>
+                Навигация
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # ✅ ИСПРАВЛЕНИЕ: Добавлен параметр key
+        page = st.radio(
+            "Выберите страницу:",
+            ["🏠 Главная", "🗄️ Архив Документов"],
+            label_visibility="collapsed",
+            key="navigation_radio"  # ✅ Уникальный ключ
+        )
+    
+    # Render selected page
+    if page == "🏠 Главная":
+        render_header()
+        render_accuracy_card()
+        render_features()
+        render_upload_section()
+        render_results_section()
+        render_export_section()
+    
+    elif page == "🗄️ Архив Документов":
+        render_archive_page()
+    
     render_footer()
+
 
 if __name__ == "__main__":
     main()
