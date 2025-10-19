@@ -1,5 +1,4 @@
 # /services/ocr_service.py
-
 import os
 import re
 import json
@@ -274,101 +273,112 @@ def predict_text_from_line_image(line_image: Image.Image) -> Tuple[str, float]:
 
 def process_document(file_id: uuid.UUID, file_path: str):
     """
-    Реальная функция нормализации и распознавания документа.
+    Реальная функция нормализации и распознавания документа с исправленным прогрессом.
     """
     print(f"Начало обработки файла: {file_path}")
     progress_status[file_id] = {"status": "starting", "progress": 0}
 
     try:
         # --- 1. Загрузка и подготовка изображений ---
-        progress_status[file_id] = {"status": "loading", "progress": 10}
-        
+        progress_status[file_id] = {"status": "loading", "progress": 5}
         fpath = Path(file_path)
+        
+        # Загрузка правил и глоссария
+        alphavit_docx = os.getenv("ALPHAVIT_DOCX_PATH")
+        fund_docx = os.getenv("FUND_DOCX_PATH")
+        alpha_rules = load_alphabet_from_docx(alphavit_docx)
+        glossary = load_fund_glossary(fund_docx, alpha_rules)
+
         if fpath.suffix.lower() == '.pdf':
             pages = convert_from_path(str(fpath), dpi=300)
         else:
             pages = [Image.open(fpath)]
+        
+        # --- Предварительный подсчет общего количества строк для точного прогресса ---
+        progress_status[file_id] = {"status": "analyzing", "progress": 10}
+        total_lines_in_doc = 0
+        all_page_lines = []
+        for page_img in pages:
+            left, right = split_double_page(page_img)
+            page_lines = []
+            for side_img in [left, right]:
+                dewarped = dewarp_image(side_img)
+                lines_coords = segment_lines(dewarped, min_line_height=30)
+                if lines_coords:
+                    total_lines_in_doc += len(lines_coords)
+                # Сохраняем обработанные данные, чтобы не делать работу дважды
+                page_lines.append({'image': dewarped, 'lines': lines_coords})
+            all_page_lines.append(page_lines)
 
+        # --- 2. Обработка каждой страницы и строки ---
+        progress_status[file_id] = {"status": "processing", "progress": 20}
+        
         all_recognized_words = []
         page_texts = []
-        total_lines = 0
+        lines_processed = 0
+        
+        # Основной цикл распознавания
+        for page_idx, page_data in enumerate(all_page_lines):
+            for side_data in page_data:
+                dewarped_img = side_data['image']
+                lines_coords = side_data['lines']
 
-        progress_status[file_id] = {"status": "loading", "progress": 10}
-        fpath = Path(file_path)
+                if not lines_coords:
+                    continue
 
-        # NEW: пути к DOCX из окружения
-        alphavit_docx = os.getenv("ALPHAVIT_DOCX_PATH", None)  # NEW
-        fund_docx = os.getenv("FUND_DOCX_PATH", None)          # NEW
-        alpha_rules = load_alphabet_from_docx(alphavit_docx)   # NEW
-        glossary = load_fund_glossary(fund_docx, alpha_rules)  # NEW
-
-        if fpath.suffix.lower() == '.pdf':
-            pages = convert_from_path(str(fpath), dpi=300)
-        else:
-            pages = [Image.open(fpath)]
-                
-        # --- 2. Обработка каждой страницы ---
-        for page_idx, page_img in enumerate(pages):
-            progress_status[file_id] = {"status": "processing_page", "progress": 20 + 60 * (page_idx / len(pages))}
-            
-            # Разделение разворота
-            left, right = split_double_page(page_img)
-            
-            for side_img, side_name in [(left, 'left'), (right, 'right')]:
-                # Деварпинг
-                dewarped_img = dewarp_image(side_img)
-                
-                # Сегментация строк
-                lines_coords = segment_lines(dewarped_img, min_line_height=30)
-                if not lines_coords: continue
-                total_lines += len(lines_coords)
-
-                # Распознавание каждой строки
-                for i, coords in enumerate(lines_coords):
-                    progress_status[file_id] = {"status": "recognizing", "progress": 25 + 60 * (page_idx / len(pages)) + 30 * (i / len(lines_coords))}
+                for coords in lines_coords:
+                    # Расчет прогресса на основе общего числа обработанных строк
+                    if total_lines_in_doc > 0:
+                        progress = 20 + 70 * (lines_processed / total_lines_in_doc)
+                        progress_status[file_id] = {
+                            "status": "recognizing",
+                            "progress": min(90, int(progress)) # Ограничиваем 90% до этапа сохранения
+                        }
+                    
                     x0, y0, x1, y1 = coords
                     pad = max(2, (y1 - y0) // 20)
                     line_img = dewarped_img.crop((max(0, x0 - 5), max(0, y0 - pad), min(dewarped_img.width, x1 + 5), min(dewarped_img.height, y1 + pad)))
                     
                     line_text, confidence = predict_text_from_line_image(line_img)
-                    if not line_text.strip(): 
+                    lines_processed += 1
+                    
+                    if not line_text.strip():
                         continue
+                        
                     norm_text = normalize_and_correct_line(line_text, glossary, alpha_rules)
                     page_texts.append(norm_text)
 
                     for word in norm_text.split():
                         all_recognized_words.append(
-                            TranscriptData(text=word, coordinates=[x0, y0, x1, y1], confidence=round(confidence, 3)))
+                            TranscriptData(text=word, coordinates=[x0, y0, x1, y1], confidence=round(confidence, 3))
+                        )
 
         # --- 3. Формирование и сохранение результата ---
         progress_status[file_id] = {"status": "saving", "progress": 95}
         
-        # WER можно рассчитать, если есть ground truth. Пока ставим 0.
         result = RecognitionResult(
             wer=0.0,
             recognized_words=all_recognized_words,
-            extracted_attributes={} # Заглушка для NER
+            extracted_attributes={}
         )
 
         transcript_filename = f"{file_id}_transcript.json"
-        transcript_path = os.path.join(settings.TRANSCRIPTS_DIRECTORY, transcript_filename)
-        transcript_path = transcript_path.replace('\\', '/')
+        transcript_path = os.path.join(settings.TRANSCRIPTS_DIRECTORY, transcript_filename).replace('\\', '/')
+        
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(result.model_dump_json(indent=4))
 
-        print(f"Обработка файла {file_path} завершена. Найдено {total_lines} строк. Результат в {transcript_path}")
-        
+        print(f"Обработка файла {file_path} завершена. Найдено {total_lines_in_doc} строк. Результат в {transcript_path}")
+
     except Exception as e:
         print(f"Ошибка при обработке {file_path}: {e}")
         progress_status[file_id] = {"status": "error", "progress": 100, "message": str(e)}
-        # В реальном приложении здесь должен быть более сложный механизм обработки ошибок
         return None, -1
     finally:
         if file_id in progress_status and progress_status[file_id].get("status") != "error":
             progress_status[file_id] = {"status": "completed", "progress": 100}
 
     return transcript_path, result.wer
-
 
 # --- Mock-функция остается для обратной совместимости или тестов ---
 
