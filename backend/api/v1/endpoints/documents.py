@@ -11,6 +11,7 @@ from core.config import settings
 from crud import crud_files, crud_transcripts, crud_corrections
 from schemas.document import FileCreate, FileInDB, CorrectionData, TranscriptInDB, TranscriptInDB
 from services import ocr_service
+from pathlib import Path
 
 router = APIRouter()
 
@@ -21,37 +22,37 @@ def startup_event():
     os.makedirs(settings.CORRECTIONS_DIRECTORY, exist_ok=True)
 
 @router.post("/upload", response_model=List[FileInDB], status_code=201)
-def upload_documents(
-    files: List[UploadFile] = File(...), 
-    db: Session = Depends(get_db)
-):
-    """
-    1-3) Загрузка одного или нескольких документов на сервер и сохранение в БД.
-    Поддерживаемые форматы: JPG, JPEG, TIFF, PDF.
-    """
-    allowed_extensions = {"jpg", "jpeg", "tiff", "pdf"}
+def upload_documents(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
+    """1-3) Загрузка документов на сервер и сохранение в БД."""
+    allowed_extensions = {'jpg', 'jpeg', 'tiff', 'pdf'}
     uploaded_files = []
     
     for file in files:
         extension = file.filename.split('.')[-1].lower()
         if extension not in allowed_extensions:
-            raise HTTPException(status_code=400, detail=f"Файлы с расширением {extension} не поддерживаются.")
+            raise HTTPException(status_code=400, detail=f"Неподдерживаемый формат: {extension}")
         
         # Генерируем уникальное имя файла
         unique_filename = f"{uuid.uuid4()}.{extension}"
-        file_path = os.path.join(settings.UPLOADS_DIRECTORY, unique_filename)
         
+        # ИСПРАВЛЕНИЕ: используем Path для кроссплатформенности
+        file_path = Path(settings.UPLOADS_DIRECTORY) / unique_filename
+        
+        # Сохраняем файл
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
-        file_data = FileCreate(
+        
+        # Сохраняем в БД (конвертируем Path в строку)
+        from schemas.document import FileCreate
+
+        file_create = FileCreate(
+            file_path=str(file_path).replace('\\', '/'),  # Нормализуем путь
             file_name=file.filename,
-            file_path=file_path,
             file_extension=extension
         )
-        db_file = crud_files.create_file(db=db, file=file_data)
+        db_file = crud_files.create_file(db=db, file=file_create)
         uploaded_files.append(db_file)
-        
+    
     return uploaded_files
 
 def process_and_save_results(db: Session, file_id: uuid.UUID, file_path: str):

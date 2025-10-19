@@ -339,6 +339,7 @@ def process_document(file_id: uuid.UUID, file_path: str):
 
         transcript_filename = f"{file_id}_transcript.json"
         transcript_path = os.path.join(settings.TRANSCRIPTS_DIRECTORY, transcript_filename)
+        transcript_path = transcript_path.replace('\\', '/')
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(result.model_dump_json(indent=4))
 
