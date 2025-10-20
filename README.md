@@ -62,6 +62,8 @@ Frontend & Визуализация
    docker-compose up #run
    ```
 
+   Чтобы открыть frontend нужно перейти по ссылке: http://localhost:8501/
+   
 ---
 
 ### Альтернативный вариант (без Docker):
