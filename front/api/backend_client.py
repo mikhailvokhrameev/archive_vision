@@ -20,6 +20,10 @@ def get_api_base_url():
     return "http://127.0.0.1:8000/api/v1"
 
 API_BASE = get_api_base_url()
+TEMP_DIR = "temp_uploads"
+
+# Initialize temp directory
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 def process_file(file_id):
     """Start processing uploaded file"""
