@@ -1,13 +1,10 @@
 # Веб-сервис "Archive Vision"
 
-Данный репозиторий содержит веб-сервис, который позволит архивам Москвы в автоматизированном режиме извлекать из данные из образов архивных документов и наполнять ими базу данных.
+Данный репозиторий содержит исходный код веб‑сервиса для автоматизированной расшифровки архивных документов московских архивов, что способствует сохранению исторического наследия.
 
 <div align="center">
-<img src="https://github.com/user-attachments/assets/010d2199-5c2c-4428-a2f0-76f637ad35e1" width="600"><br>
-
-
-
-<em>Пример расшифровки документа</em>
+<img src="https://github.com/user-attachments/assets/ddbb62d4-cbc2-423e-aafd-e95b3cb7c1b4" width="600"><br>
+<em>Главная страница</em>
 </div>
 
 ---
@@ -21,12 +18,14 @@
 ### Используемые технологии:
 
 Backend & API
+
 * Python
 * FastAPI
 * Uvicorn
 * Pydantic
 
 Machine Learning & Data Science
+
 * PyTorch
 * Hugging Face Transformers
 * NumPy & SciPy
@@ -34,46 +33,42 @@ Machine Learning & Data Science
 * pdf2image
 
 Frontend & Визуализация
+
 * Streamlit
 
 База Данных
+
 * PostgreSQL
 
-
 ---
 
-### Структура проекта
+### Установка и запуск с использованием Docker (рекомендуется)
 
-```
-ARCHIVE_VISION/
-│
-├── backend/
-│   ├── database.py       # Управляет подключением к базе данных, моделями и логикой ORM
-│   ├── main.py           # Основная точка входа в бэкэнд-приложение
-│   ├── ocr.py            # Обрабатывает OCR и вывод модели
-│   └── utils.py          # Утилитарные функции для бэкэнда
-│
-├── front/
-│   ├── temp_uploads/     # Временное хранилище для файлов, загруженных пользователями
-│   ├── app.py            # Логика фронтенд-приложения
-│   └── corrections.json  # Конфигурация для исправления результатов OCR
-│
-├── presentation/
-│   └── bestbmstu.pptx    # Слайды презентации проекта
-│
-├── .gitignore
-├── Dockerfile            # Инструкция по загрузке нужных библиотек и запуску приложения
-├── generate_db.sql       # SQL-скрипт для инициализации схемы БД
-├── LICENSE
-├── README.md
-└── requirements.txt
+1. **Клонируйте репозиторий:**
 
-```
+   ```bash
+   git clone https://github.com/mikhailvokhrameev/archive_vision.git
+   cd archive_vision
+   ```
+2. **Установите Docker в зависимости от вашей ОС:**
 
+   * Windows: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/windows-install/).
+   * macOS: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/mac-install/).
+   * Linux: Установите Docker Engine по [официальной инструкции](https://docs.docker.com/engine/install/).
+3. **Запустите docker-compose:**
 
+   **Важно:** Все команды должны запускаться из корневой папки проекта.
+
+   ```bash
+   docker-compose up --build # build and run
+   docker-compose up #run
+   ```
+
+   Чтобы открыть frontend нужно перейти по ссылке: http://localhost:8501/
+   
 ---
 
-### Установка
+### Альтернативный вариант (без Docker):
 
 Для настройки среды проекта выполните следующее:
 
@@ -93,50 +88,34 @@ ARCHIVE_VISION/
    source venv/bin/activate
 
    # Активация на Windows:
-   # venv\Scripts\activate
+   venv\Scripts\activate
    ```
-3. **Установите:**
+3. **Установите зависимости:**
 
    ```bash
    pip install -r requirements.txt
    ```
 
----
+#### **Запуск:**
 
-### Использование
+1. **Запуск backend**
 
-**Важно:** Все команды должны запускаться из корневой папки проекта.
+   Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
 
-#### Шаг 1: Запуск бекенда
+   ```bash
+   uvicorn main:app --reload --host 127.0.0.1 --port 8001
+   ```
+2. **Запуск frontend**
 
-Этот скрипт запускает бекэнд на http://0.0.0.0:8000. Для изменения порта или IP требуется в файле main.py изменить соответственные аргументы в `uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)`
+   Этот скрипт запускает frontend по адресу http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
 
-```bash
-python ./backend/main.py
-```
+   ```bash
+   streamlit run ./front/app.py
+   ```
+3. **Настройка БД**
 
-#### Шаг 2: Запуск фронтенда
+   В качестве базы данных используется PostgreSQL. Для связи backend и базы данных требуется создать файл .env в папке backend и добавить переменную:
+   `DATABASE_URL="postgresql://user:password@localhost:5432/db_name"`
+4. **Работа с сервисом**
 
-Этот скрипт запускает фронтенд приложения на http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
-
-```bash
-streamlit run ./front/app.py
-```
-
-#### Шаг 3: Настройка БД
-
-В качестве базы данных используется PostgreSQL. Скрипт для создания таблиц в базеданных представлен в файле generate_db.sql. Для связи бекенда с БД требуется в файле backend\database.py изменить:
-
-* DB_USER - имя администратора БД;
-* DB_PASS - пароль администратора;
-* DB_HOST - IP адрес БД;
-* DB_PORT - порт для подключения к БД;
-* DB_NAME - название базы данных.
-
-#### Шаг 4: Работа с сервисом
-
-Вся работа с сервисом происходит через фронтенд (по умолчанию http://127.0.0.1:8000). Для загрузки и обработки документа требуется загрузить файл изображения документа через интерфейс.
-
-#### Запуск dockerfile
-* Build: docker build -t myapp .
-* Run: docker run -p 8501:8501 myapp
+   По умолчанию работа сервиса производится по адресу http://127.0.0.1:8501. Для загрузки и обработки документа требуется загрузить файл с изображением страницы документа через веб интерфейс.

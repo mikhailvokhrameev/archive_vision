@@ -1,0 +1,24 @@
+# ML-зависимости (torch устанавливается в Dockerfile отдельно)
+transformers
+scikit-image
+scipy
+numpy
+opencv-python-headless
+pillow
+tqdm
+
+# Web & Database
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+pytesseract
+python-dotenv
+pdf2image
+python-docx
+
+# Дополнительные инструменты
+scikit-image
+tqdm
