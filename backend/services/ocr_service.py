@@ -284,8 +284,8 @@ def process_document(file_id: uuid.UUID, file_path: str):
         fpath = Path(file_path)
         
         # Загрузка правил и глоссария
-        alphavit_docx = os.getenv("ALPHAVIT_DOCX_PATH")
-        fund_docx = os.getenv("FUND_DOCX_PATH")
+        alphavit_docx = ALPHAVIT_DOCX_PATH
+        fund_docx = FUND_DOCX_PATH
         alpha_rules = load_alphabet_from_docx(alphavit_docx)
         glossary = load_fund_glossary(fund_docx, alpha_rules)
 
