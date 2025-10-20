@@ -18,12 +18,14 @@
 ### Используемые технологии:
 
 Backend & API
+
 * Python
 * FastAPI
 * Uvicorn
 * Pydantic
 
 Machine Learning & Data Science
+
 * PyTorch
 * Hugging Face Transformers
 * NumPy & SciPy
@@ -31,11 +33,12 @@ Machine Learning & Data Science
 * pdf2image
 
 Frontend & Визуализация
+
 * Streamlit
 
 База Данных
-* PostgreSQL
 
+* PostgreSQL
 
 ---
 
@@ -47,16 +50,15 @@ Frontend & Визуализация
    git clone https://github.com/mikhailvokhrameev/archive_vision.git
    cd archive_vision
    ```
-
 2. **Установите Docker в зависимости от вашей ОС:**
+
    * Windows: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/windows-install/).
    * macOS: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/mac-install/).
    * Linux: Установите Docker Engine по [официальной инструкции](https://docs.docker.com/engine/install/).
-
 3. **Запустите docker-compose:**
 
    **Важно:** Все команды должны запускаться из корневой папки проекта.
-   
+
    ```bash
    docker-compose up --build # build and run
    docker-compose up #run
@@ -74,7 +76,6 @@ Frontend & Визуализация
    git clone https://github.com/mikhailvokhrameev/archive_vision.git
    cd archive_vision
    ```
-   
 2. **Создайте и активируйте виртуальное окружение (рекомендуется):**
 
    ```bash
@@ -95,31 +96,24 @@ Frontend & Визуализация
 
 #### **Запуск:**
 
- 1. **Запуск backend**
+1. **Запуск backend**
 
-      Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
-      ```bash
-      uvicorn main:app --reload --host 127.0.0.1 --port 8001
-      ```
+   Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
 
+   ```bash
+   uvicorn main:app --reload --host 127.0.0.1 --port 8001
+   ```
 2. **Запуск frontend**
 
    Этот скрипт запускает frontend по адресу http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
-   
+
    ```bash
    streamlit run ./front/app.py
    ```
-
 3. **Настройка БД**
 
-   В качестве базы данных используется PostgreSQL. Скрипт для создания таблиц в базе данных представлен в файле generate_db.sql. Для связи backend и базы данных требуется в файле backend\database.py изменить:
-   
-   * DB_USER - имя администратора БД;
-   * DB_PASS - пароль администратора;
-   * DB_HOST - IP адрес БД;
-   * DB_PORT - порт для подключения к БД;
-   * DB_NAME - название базы данных.
-
+   В качестве базы данных используется PostgreSQL. Для связи backend и базы данных требуется создать файл .env в папке backend и добавить переменную:
+   `DATABASE_URL="postgresql://user:password@localhost:5432/db_name"`
 4. **Работа с сервисом**
 
    По умолчанию работа сервиса производится по адресу http://127.0.0.1:8501. Для загрузки и обработки документа требуется загрузить файл с изображением страницы документа через веб интерфейс.
