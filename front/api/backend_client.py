@@ -17,13 +17,9 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8001/api/v1"
+    return "http://127.0.0.1:8000/api/v1"
 
 API_BASE = get_api_base_url()
-TEMP_DIR = "temp_uploads"
-
-# Initialize temp directory
-os.makedirs(TEMP_DIR, exist_ok=True)
 
 def process_file(file_id):
     """Start processing uploaded file"""
@@ -53,16 +49,14 @@ def initialize_session_state():
     if "current_file_id" not in st.session_state:
         st.session_state.current_file_id = None
 
-initialize_session_state()
-
 
 
 # --- Backend API Functions ---
 def upload_file_to_backend(uploaded_file):
     """Upload file to backend and return file_id"""
+    temp_path = f"temp_{uploaded_file.name}"
     try:
         # Сохраняем файл временно
-        temp_path = f"temp_{uploaded_file.name}"
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.getvalue())
         
@@ -82,7 +76,6 @@ def upload_file_to_backend(uploaded_file):
                 return {
                     "success": True, 
                     "file_id": file_id,
-                    "temp_path": temp_path  # ← Добавьте эту строку
                 }
             else:
                 return {"success": False, "error": "Пустой ответ"}
@@ -91,6 +84,9 @@ def upload_file_to_backend(uploaded_file):
     
     except Exception as e:
         return {"success": False, "error": str(e)}
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 def transcribe_file(file_id):
     """Start transcription for uploaded file"""
