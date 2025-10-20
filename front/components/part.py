@@ -5,13 +5,6 @@ import requests
 from PIL import Image
 from datetime import datetime
 from api.backend_client import upload_file_to_backend, transcribe_file, wait_for_processing, update_transcript, get_transcript, get_all_files_count, get_all_transcripts, save_corrections, API_BASE
-# Page configuration - must be first Streamlit command
-st.set_page_config(
-    page_title="Moscow Archives | Document Recognition",
-    page_icon="📜",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 def render_header():
     st.markdown("""
@@ -106,13 +99,16 @@ def render_upload_section():
             </div>
             """, unsafe_allow_html=True)
 
-            # Preview first image
-            for uf in uploaded_files:
-                if uf.type.startswith("image"):
-                    st.markdown("<div class='document-preview fade-in'>", unsafe_allow_html=True)
-                    st.image(uf, caption=f"Предпросмотр: {uf.name}", use_container_width=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    break
+            # Preview uploaded images
+            image_files = [f for f in uploaded_files if f.type.startswith("image")]
+            if image_files:
+                st.markdown("<h4 style='text-align: center; color: #5C4033;'>Предпросмотр изображений</h4>", unsafe_allow_html=True)
+                
+                # Create columns for a grid layout
+                cols = st.columns(min(len(image_files), 4)) 
+                for i, image_file in enumerate(image_files):
+                    with cols[i % 4]:
+                        st.image(image_file, caption=image_file.name, use_container_width=True)
 
             # Process button
             if st.button("🚀 Расшифровать Документы", use_container_width=True, key="process_btn"):
