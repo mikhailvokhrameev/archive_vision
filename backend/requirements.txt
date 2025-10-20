@@ -18,3 +18,7 @@ pytesseract
 python-dotenv
 pdf2image
 python-docx
+
+# Дополнительные инструменты
+scikit-image
+tqdm
