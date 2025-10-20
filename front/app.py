@@ -11,6 +11,13 @@ from api.backend_client import initialize_session_state
 # Main application
 def main():
     """Main application entry point"""
+    # Page configuration - must be first Streamlit command
+    st.set_page_config(
+        page_title="Moscow Archives | Document Recognition",
+        page_icon="📜",
+        layout="wide",
+        initial_sidebar_state="expanded"
+)
     load_custom_css()
     
     # Sidebar navigation
