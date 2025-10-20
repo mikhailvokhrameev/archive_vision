@@ -236,9 +236,18 @@ def segment_lines(image: Image.Image, min_line_height: int = 10) -> List[Tuple[i
         boxes.append((0, max(0, y0 + text_indices[0] - 2), image.width, min(image.height, y0 + text_indices[-1] + 2)))
     return boxes
 
-def split_double_page(image: Image.Image) -> Tuple[Image.Image, Image.Image]:
+def split_double_page(image: Image.Image) -> List[Image.Image]:
+    """
+    Splits a double-page spread into one or two single pages.
+    If the image is wider than it is tall (a common aspect ratio for book scans),
+    it's split into two pages. Otherwise, it's treated as a single page.
+    """
     w, h = image.size
-    return image.crop((0, 0, w // 2, h)), image.crop((w // 2, 0, w, h))
+    # Heuristic: if width is greater than height, assume it's a double page.
+    if w > h:
+        return [image.crop((0, 0, w // 2, h)), image.crop((w // 2, 0, w, h))]
+    else:
+        return [image]
 
 def _count_oov_tokens(text: str) -> int:
     if not get_morph_analyzer(): return 0
@@ -299,14 +308,15 @@ def process_document(file_id: uuid.UUID, file_path: str):
         total_lines_in_doc = 0
         all_page_lines = []
         for page_img in pages:
-            left, right = split_double_page(page_img)
+            # The function now returns a list of 1 or 2 images
+            sides = split_double_page(page_img)
             page_lines = []
-            for side_img in [left, right]:
+            for side_img in sides:
                 dewarped = dewarp_image(side_img)
                 lines_coords = segment_lines(dewarped, min_line_height=30)
                 if lines_coords:
                     total_lines_in_doc += len(lines_coords)
-                # Сохраняем обработанные данные, чтобы не делать работу дважды
+                # Store processed data to avoid re-doing work
                 page_lines.append({'image': dewarped, 'lines': lines_coords})
             all_page_lines.append(page_lines)
 

@@ -53,3 +53,7 @@ class TranscriptInDB(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TranscriptInfo(TranscriptInDB):
+    file_name: str

@@ -276,6 +276,7 @@ def render_archive_page():
         transcript_id = meta.get("transcript_id")
         created_at = meta.get("created_at", "N/A")
         wer = meta.get("wer", {}).get("wer", "N/A")
+        file_name = meta.get("file_name", "N/A")
         
         # ✅ ПОЛУЧАЕМ ПОЛНЫЙ ТРАНСКРИПТ с текстом
         full_transcript_result = get_transcript(file_id)
@@ -298,7 +299,7 @@ def render_archive_page():
             continue
         
         # Отображение
-        with st.expander(f"📄 **Документ #{transcript_id[:8]}** — {created_at[:10]}"):
+        with st.expander(f"📄 **Документ #{file_name}** — {created_at[:10]}"):
             col1, col2 = st.columns([1, 2])
             
             with col1:
@@ -308,6 +309,7 @@ def render_archive_page():
                     <strong style='color: #5C4033;'>📋 Метаданные</strong><br><br>
                     <span style='color: #704214;'><strong>File ID:</strong> {file_id}</span><br>
                     <span style='color: #704214;'><strong>Transcript ID:</strong> {transcript_id}</span><br>
+                    <span style='color: #704214;'><strong>Имя файла:</strong> {file_name}</span><br>
                     <span style='color: #704214;'><strong>Создан:</strong> {created_at[:19]}</span><br>
                     <span style='color: #704214;'><strong>Слов:</strong> {len(recognized_words)}</span><br>
                     <span style='color: #704214;'><strong>WER:</strong> {wer}</span>

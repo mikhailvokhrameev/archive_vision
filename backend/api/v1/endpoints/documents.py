@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
 from crud import crud_files, crud_transcripts, crud_corrections
-from schemas.document import FileCreate, FileInDB, CorrectionData, TranscriptInDB, TranscriptInDB
+from schemas.document import FileCreate, FileInDB, CorrectionData, TranscriptInDB, TranscriptInfo
 from services import ocr_service
 from pathlib import Path
 
@@ -161,11 +161,25 @@ def get_all_files(db: Session = Depends(get_db), skip: int = 0, limit: int = 100
     files = crud_files.get_files(db, skip=skip, limit=limit)
     return files
 
-@router.get("/transcripts", response_model=List[TranscriptInDB])
+@router.get("/transcripts", response_model=List[TranscriptInfo])
 def get_all_transcripts(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
     """
-    Возвращает список всех транскрипций.
+    Возвращает список всех транскрипций, включая имя файла.
     """
     transcripts = crud_transcripts.get_transcripts(db, skip=skip, limit=limit)
-    return transcripts
+    
+    # Обогащаем каждую транскрипцию именем файла
+    results = []
+    for t in transcripts:
+        results.append(
+            TranscriptInfo(
+                transcript_id=t.transcript_id,
+                file_id=t.file_id,
+                transcript_path=t.transcript_path,
+                wer=t.wer,
+                created_at=t.created_at,
+                file_name=t.file.file_name  # Доступ через relationship
+            )
+        )
+    return results
 
