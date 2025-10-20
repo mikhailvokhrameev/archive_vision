@@ -20,10 +20,6 @@ def get_api_base_url():
     return "http://127.0.0.1:8001/api/v1"
 
 API_BASE = get_api_base_url()
-TEMP_DIR = "temp_uploads"
-
-# Initialize temp directory
-os.makedirs(TEMP_DIR, exist_ok=True)
 
 def process_file(file_id):
     """Start processing uploaded file"""
@@ -61,47 +57,35 @@ initialize_session_state()
 def upload_file_to_backend(uploaded_file):
     """Upload file to backend and return file_id"""
     try:
-        # Получаем байты напрямую без временного файла
-        file_bytes = uploaded_file.getvalue()
+        # Сохраняем файл временно
+        temp_path = f"temp_{uploaded_file.name}"
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getvalue())
         
-        # Формируем правильный multipart/form-data
-        files = {
-            "files": (
-                uploaded_file.name,
-                file_bytes,
-                uploaded_file.type or "application/octet-stream"
+        # Загружаем на бэкенд
+        with open(temp_path, "rb") as f:
+            files = [("files", (uploaded_file.name, f, uploaded_file.type))]
+            response = requests.post(
+                f"{API_BASE}/documents/upload",
+                files=files,
+                timeout=300
             )
-        }
-        
-        response = requests.post(
-            f"{API_BASE}/documents/upload",
-            files=files,
-            timeout=300
-        )
         
         if response.status_code == 201:
             data = response.json()
             if isinstance(data, list) and len(data) > 0:
                 file_id = data[0]["file_id"]
                 return {
-                    "success": True,
-                    "file_id": file_id
+                    "success": True, 
+                    "file_id": file_id,
+                    "temp_path": temp_path  # ← Добавьте эту строку
                 }
             else:
-                return {"success": False, "error": "Пустой ответ от сервера"}
+                return {"success": False, "error": "Пустой ответ"}
         else:
-            error_msg = f"HTTP {response.status_code}: {response.text}"
-            print(f"Upload error: {error_msg}")
-            return {"success": False, "error": error_msg}
-            
-    except requests.exceptions.Timeout:
-        return {"success": False, "error": "Timeout: превышено время ожидания"}
-    except requests.exceptions.ConnectionError:
-        return {"success": False, "error": "Не удалось подключиться к backend"}
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+    
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Exception in upload: {error_trace}")
         return {"success": False, "error": str(e)}
 
 def transcribe_file(file_id):

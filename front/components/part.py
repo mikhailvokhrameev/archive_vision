@@ -84,11 +84,11 @@ def render_upload_section():
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
         uploaded_files = st.file_uploader(
-            label="Загрузите архивные документы",
-            type=["pdf", "jpg", "jpeg", "png", "tiff", "tif"],
+            label="",
+            type=['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'tif'],
             accept_multiple_files=True,
             label_visibility="collapsed",
-            help="Форматы: PDF, JPG, PNG, TIFF"
+            help="Перетащите файлы или нажмите для выбора. Поддерживаются PDF, JPG, PNG, TIFF"
         )
 
         if uploaded_files:
@@ -137,7 +137,7 @@ def process_documents_batch(uploaded_files):
             continue
         
         file_id = upload_result["file_id"]
-        # temp_path = upload_result["temp_path"]
+        temp_path = upload_result["temp_path"]
         
         # 2. Start transcription
         transcribe_result = transcribe_file(file_id)
