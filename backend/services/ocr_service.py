@@ -316,6 +316,7 @@ def process_document(file_id: uuid.UUID, file_path: str):
         all_recognized_words = []
         page_texts = []
         lines_processed = 0
+        fragment_id = 0
         
         # Основной цикл распознавания
         for page_idx, page_data in enumerate(all_page_lines):
@@ -348,10 +349,15 @@ def process_document(file_id: uuid.UUID, file_path: str):
                     norm_text = normalize_and_correct_line(line_text, glossary, alpha_rules)
                     page_texts.append(norm_text)
 
-                    for word in norm_text.split():
-                        all_recognized_words.append(
-                            TranscriptData(text=word, coordinates=[x0, y0, x1, y1], confidence=round(confidence, 3))
+                    all_recognized_words.append(
+                        TranscriptData(
+                            fragment_id=fragment_id,
+                            text=norm_text,
+                            coordinates=[x0, y0, x1, y1],
+                            confidence=round(confidence, 3)
                         )
+                    )
+                    fragment_id += 1
 
         # --- 3. Формирование и сохранение результата ---
         progress_status[file_id] = {"status": "saving", "progress": 95}

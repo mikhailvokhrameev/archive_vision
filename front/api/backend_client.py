@@ -17,7 +17,7 @@ def get_api_base_url():
     except Exception:
         pass
     # 3. Fallback for local development
-    return "http://127.0.0.1:8001/api/v1"
+    return "http://127.0.0.1:8000/api/v1"
 
 API_BASE = get_api_base_url()
 
@@ -210,5 +210,21 @@ def get_file_by_id(file_id):
             return {"success": True, "data": response.json()}
         else:
             return {"success": False, "error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def save_corrections(file_id, corrections):
+    """Save corrected text fragments to the backend."""
+    try:
+        response = requests.post(
+            f"{API_BASE}/documents/{file_id}/corrections",
+            json=corrections,
+            timeout=60
+        )
+        if response.status_code == 201:
+            return {"success": True, "message": response.json()}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
     except Exception as e:
         return {"success": False, "error": str(e)}

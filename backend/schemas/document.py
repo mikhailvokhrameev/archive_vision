@@ -21,6 +21,7 @@ class FileInDB(FileBase):
 
 class TranscriptData(BaseModel):
     # Структура для распознанного текста
+    fragment_id: int
     text: str
     coordinates: List[int] # [x1, y1, x2, y2]
     confidence: float

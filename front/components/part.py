@@ -4,7 +4,7 @@ import time
 import requests
 from PIL import Image
 from datetime import datetime
-from api.backend_client import upload_file_to_backend, transcribe_file, wait_for_processing, update_transcript, get_transcript, get_all_files_count, get_all_transcripts, API_BASE
+from api.backend_client import upload_file_to_backend, transcribe_file, wait_for_processing, update_transcript, get_transcript, get_all_files_count, get_all_transcripts, save_corrections, API_BASE
 # Page configuration - must be first Streamlit command
 st.set_page_config(
     page_title="Moscow Archives | Document Recognition",
@@ -352,47 +352,121 @@ def render_archive_page():
 
 
 def render_results_section():
-    """Display and edit transcribed results"""
-    if not st.session_state.processed_files:
+    """Display and edit transcribed results with a toggleable edit mode."""
+    if not st.session_state.get("processed_files"):
         return
-    
+
     st.markdown("<div class='ornamental-divider'>◈ ◆ ◈</div>", unsafe_allow_html=True)
     st.markdown(
-        "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📋 Результаты Расшифровки</h2>",
+        "<h2 style='text-align: center; color: #5C4033; font-family: Playfair Display, serif;'>📋 Результаты и Коррекция</h2>",
         unsafe_allow_html=True
     )
-    
+
     for file_name, data in st.session_state.processed_files.items():
-        with st.expander(f"📄 **{file_name}** (File ID: {data['file_id']})"):
-            col1, col2 = st.columns(2)
-            
-            # Preview image
+        file_id = data['file_id']
+
+        # Initialize edit mode state for each file if it doesn't exist
+        if f"edit_mode_{file_id}" not in st.session_state:
+            st.session_state[f"edit_mode_{file_id}"] = False
+
+        with st.expander(f"📄 **{file_name}** (File ID: {file_id})", expanded=True):
+            col1, col2 = st.columns([2, 3])
+
+            # --- Image Preview ---
             with col1:
                 try:
                     if data["path"].lower().endswith('.pdf'):
-                        st.info("📕 PDF файл (предпросмотр недоступен)")
+                        st.info("📕 PDF-файл (предпросмотр недоступен в этой секции)")
                     else:
                         img = Image.open(data["path"])
                         st.image(img, caption="Оригинал документа", use_container_width=True)
                 except Exception as e:
-                    st.warning(f"⚠️ Не удалось загрузить изображение: {e}")
-            
-            # Editable text
+                    st.warning(f"⚠️ Не удалось загрузить изображение для предпросмотра: {e}")
+
+            # --- Display/Edit Area ---
             with col2:
-                edited_text = st.text_area(
-                    "Распознанный текст (редактируемый)",
-                    value=data["text"],
-                    height=300,
-                    key=f"text_{file_name}"
-                )
-                
-                # Auto-save changes
-                if edited_text != data["text"]:
-                    if update_transcript(data["transcript_id"], edited_text):
-                        st.session_state.processed_files[file_name]["text"] = edited_text
-                        st.success("💾 Изменения сохранены")
-                    else:
-                        st.error("❌ Не удалось сохранить изменения")
+                raw_data = data.get("raw_data", {})
+                recognized_fragments = raw_data.get("recognized_words", [])
+
+                if not st.session_state[f"edit_mode_{file_id}"]:
+                    # --- VIEW MODE ---
+                    st.markdown("<h4 style='color: #5C4033;'>Распознанный текст</h4>", unsafe_allow_html=True)
+                    
+                    full_text = " ".join([f.get('text', '') for f in recognized_fragments])
+                    
+                    st.markdown(f"""
+                    <div style='height: 400px; overflow-y: auto; padding: 1rem; 
+                                 background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; 
+                                 color: #333; font-family: Lora, serif; line-height: 1.8;'>
+                        {full_text or "Текст не распознан."}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("✏️ Изменить расшифровку", key=f"edit_btn_{file_id}", use_container_width=True):
+                        st.session_state[f"edit_mode_{file_id}"] = True
+                        st.rerun()
+
+                else:
+                    # --- EDIT MODE ---
+                    st.markdown("<h4 style='color: #5C4033;'>Редактирование фрагментов</h4>", unsafe_allow_html=True)
+                    
+                    if not recognized_fragments:
+                        st.warning("Нет распознанных фрагментов для редактирования.")
+                        if st.button("Отмена", key=f"cancel_btn_{file_id}_no_frag"):
+                            st.session_state[f"edit_mode_{file_id}"] = False
+                            st.rerun()
+                        continue
+
+                    # Initialize fragment states if not present
+                    if f"fragments_{file_id}" not in st.session_state:
+                        st.session_state[f"fragments_{file_id}"] = {
+                            f['fragment_id']: f['text'] for f in recognized_fragments
+                        }
+
+                    # Display each fragment as a text input
+                    for fragment in recognized_fragments:
+                        fragment_id = fragment['fragment_id']
+                        edited_text = st.text_input(
+                            label=f"Фрагмент {fragment_id}",
+                            value=st.session_state[f"fragments_{file_id}"].get(fragment_id, fragment['text']),
+                            key=f"frag_{file_id}_{fragment_id}"
+                        )
+                        st.session_state[f"fragments_{file_id}"][fragment_id] = edited_text
+
+                    # Action buttons for edit mode
+                    btn_col1, btn_col2 = st.columns(2)
+                    with btn_col1:
+                        if st.button("💾 Сохранить исправления", key=f"save_btn_{file_id}", use_container_width=True):
+                            corrections_to_save = []
+                            original_map = {f['fragment_id']: f['text'] for f in recognized_fragments}
+                            
+                            for frag_id, edit_text in st.session_state[f"fragments_{file_id}"].items():
+                                if edit_text != original_map.get(frag_id):
+                                    corrections_to_save.append({"fragment_id": frag_id, "corrected_text": edit_text})
+                            
+                            if corrections_to_save:
+                                with st.spinner("Сохранение..."):
+                                    result = save_corrections(file_id, corrections_to_save)
+                                    if result["success"]:
+                                        st.success(f"✅ Сохранено {len(corrections_to_save)} исправлений!")
+                                        # Exit edit mode after saving
+                                        st.session_state[f"edit_mode_{file_id}"] = False
+                                        # Update the base data to reflect changes without a full rerun
+                                        for frag in recognized_fragments:
+                                            if frag['fragment_id'] in st.session_state[f"fragments_{file_id}"]:
+                                                frag['text'] = st.session_state[f"fragments_{file_id}"][frag['fragment_id']]
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Ошибка: {result['error']}")
+                            else:
+                                st.info("Нет изменений для сохранения.")
+                    
+                    with btn_col2:
+                        if st.button("Отмена", key=f"cancel_btn_{file_id}", use_container_width=True):
+                            # Discard changes and exit edit mode
+                            del st.session_state[f"fragments_{file_id}"]
+                            st.session_state[f"edit_mode_{file_id}"] = False
+                            st.rerun()
 
 
 def render_export_section():
