@@ -6,6 +6,7 @@ A premium web interface for automated document processing and indexing
 import streamlit as st
 from components.css import load_custom_css
 from components.part import render_header, render_accuracy_card, render_features, render_upload_section, render_results_section, render_export_section, render_archive_page
+from api.backend_client import initialize_session_state
 
 # Main application
 def main():
@@ -36,6 +37,7 @@ def main():
     
     # Render selected page
     if page == "🏠 Главная":
+        initialize_session_state()
         render_header()
         render_accuracy_card()
         render_features()
