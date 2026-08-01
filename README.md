@@ -1,21 +1,21 @@
-# Веб-сервис "Archive Vision"
+# "Archive Vision" Web Service
 
-Данный репозиторий содержит исходный код веб‑сервиса для автоматизированной расшифровки архивных документов московских архивов, что способствует сохранению исторического наследия.
+This repository contains the source code for a web service designed for automated transcription of archival documents from Moscow archives, contributing to the preservation of historical heritage.
 
 <div align="center">
 <img src="https://github.com/user-attachments/assets/ddbb62d4-cbc2-423e-aafd-e95b3cb7c1b4" width="600"><br>
-<em>Главная страница</em>
+<em>Main Page</em>
 </div>
 
 ---
 
-### Почему мы делали этот проект?
+### Why did we create this project?
 
-Нам было интересно поработать с современными моделями OCR, в частности **TrOCR**, произвести разметку датасета с архивными изображениями, а также получить опыт создания полноценного веб-сервиса с применением моделей ИИ.
+We were interested in working with modern OCR models, specifically **TrOCR**, annotating a dataset with archival images, and gaining practical experience in building a full-fledged web service powered by AI models.
 
 ---
 
-### Используемые технологии:
+### Technologies Used:
 
 Backend & API
 
@@ -32,90 +32,90 @@ Machine Learning & Data Science
 * OpenCV & Pillow
 * pdf2image
 
-Frontend & Визуализация
+Frontend & Visualization
 
 * Streamlit
 
-База Данных
+Database
 
 * PostgreSQL
 
 ---
 
-### Установка и запуск с использованием Docker (рекомендуется)
+### Installation and Launch using Docker (Recommended)
 
-1. **Клонируйте репозиторий:**
+1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/mikhailvokhrameev/archive_vision.git
    cd archive_vision
    ```
-2. **Установите Docker в зависимости от вашей ОС:**
+2. **Install Docker depending on your OS:**
 
-   * Windows: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/windows-install/).
-   * macOS: Установите Docker Desktop по [официальной инструкции](https://docs.docker.com/desktop/setup/install/mac-install/).
-   * Linux: Установите Docker Engine по [официальной инструкции](https://docs.docker.com/engine/install/).
-3. **Запустите docker-compose:**
+   * Windows: Install Docker Desktop following the [official instructions](https://docs.docker.com/desktop/setup/install/windows-install/).
+   * macOS: Install Docker Desktop following the [official instructions](https://docs.docker.com/desktop/setup/install/mac-install/).
+   * Linux: Install Docker Engine following the [official instructions](https://docs.docker.com/engine/install/).
+3. **Run docker-compose:**
 
-   **Важно:** Все команды должны запускаться из корневой папки проекта.
+   **Important:** All commands must be executed from the root folder of the project.
 
    ```bash
    docker-compose up --build # build and run
-   docker-compose up #run
+   docker-compose up # run
    ```
 
-   Чтобы открыть frontend нужно перейти по ссылке: http://localhost:8501/
-   
+   To open the frontend, navigate to: http://localhost:8501/
+
 ---
 
-### Альтернативный вариант (без Docker):
+### Alternative Option (without Docker):
 
-Для настройки среды проекта выполните следующее:
+To set up the project environment, follow these steps:
 
-1. **Клонируйте репозиторий:**
+1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/mikhailvokhrameev/archive_vision.git
    cd archive_vision
    ```
-2. **Создайте и активируйте виртуальное окружение (рекомендуется):**
+2. **Create and activate a virtual environment (recommended):**
 
    ```bash
-   # Создание окружения
+   # Create environment
    python3 -m venv venv
 
-   # Активация на macOS/Linux:
+   # Activation on macOS/Linux:
    source venv/bin/activate
 
-   # Активация на Windows:
+   # Activation on Windows:
    venv\Scripts\activate
    ```
-3. **Установите зависимости:**
+3. **Install dependencies:**
 
    ```bash
    pip install -r requirements.txt
    ```
 
-#### **Запуск:**
+#### **Running the Application:**
 
-1. **Запуск backend**
+1. **Start backend**
 
-   Этот скрипт запускает backend по адресу http://127.0.0.1:8001.
+   This script starts the backend at http://127.0.0.1:8001.
 
    ```bash
    uvicorn main:app --reload --host 127.0.0.1 --port 8001
    ```
-2. **Запуск frontend**
+2. **Start frontend**
 
-   Этот скрипт запускает frontend по адресу http://127.0.0.1:8000. Для изменения порта или IP требуется добавить в переменные окружения в docker файле API_BASE_URL ссылку на сервер.
+   This script starts the frontend at http://127.0.0.1:8000. To change the port or IP, add the server URL to the `API_BASE_URL` environment variable in the docker file.
 
    ```bash
    streamlit run ./front/app.py
    ```
-3. **Настройка БД**
+3. **Database Configuration**
 
-   В качестве базы данных используется PostgreSQL. Для связи backend и базы данных требуется создать файл .env в папке backend и добавить переменную:
+   PostgreSQL is used as the database. To connect the backend to the database, create a `.env` file in the `backend` folder and add the variable:
    `DATABASE_URL="postgresql://user:password@localhost:5432/db_name"`
-4. **Работа с сервисом**
+4. **Using the Service**
 
-   По умолчанию работа сервиса производится по адресу http://127.0.0.1:8501. Для загрузки и обработки документа требуется загрузить файл с изображением страницы документа через веб интерфейс.
+   By default, the service operates at http://127.0.0.1:8501. To upload and process a document, upload an image file of the document page via the web interface.
